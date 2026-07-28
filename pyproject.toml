@@ -1,0 +1,135 @@
+[build-system]
+requires = ["setuptools>=77.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scspill"
+version = "0.1.0"
+description = "Bayesian spatial-spillover synthetic control (Sakaguchi & Tagawa) for causal inference on panel data."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Carlos Mendez", email = "carlosmendez777@gmail.com" }]
+keywords = [
+    "synthetic control",
+    "spillover effects",
+    "spatial econometrics",
+    "bayesian inference",
+    "causal inference",
+    "panel data",
+    "MCMC",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "matplotlib>=3.8",
+    "pydantic>=2.0",
+    "threadpoolctl>=3.6.0",
+]
+
+[project.optional-dependencies]
+# JIT-accelerated Gibbs/SAR kernels. Optional because numba wheels can lag new
+# Python releases; the pure-NumPy path is always available.
+numba = ["numba>=0.60"]
+all = ["scspill[numba]"]
+
+[project.urls]
+Homepage = "https://github.com/quarcs-lab/scspill"
+Documentation = "https://quarcs-lab.github.io/scspill/"
+Repository = "https://github.com/quarcs-lab/scspill"
+Issues = "https://github.com/quarcs-lab/scspill/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "pytest-xdist>=3",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "pandas-stubs",
+]
+docs = [
+    "quartodoc>=0.11",
+    "griffe<1",
+    "jupyter",
+    "nbformat>=5.9",
+]
+
+# ---------------------------------------------------------------------------
+# Packaging: flat layout, in-package tests excluded from the wheel (mlsynth
+# convention), bundled case-study CSVs shipped as package data.
+# ---------------------------------------------------------------------------
+[tool.setuptools.packages.find]
+include = ["scspill*"]
+exclude = ["scspill.tests*"]
+
+[tool.setuptools.package-data]
+"scspill.data" = ["files/*.csv"]
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["scspill"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "D", "RUF"]
+ignore = [
+    "D100", "D104", "D105", "D107",   # module/package/magic/__init__ docstrings
+    "D106",                            # pydantic `class Config` blocks need no docstring
+    "E501",                            # line length handled by the formatter
+]
+# Greek symbols appear in scientific prose and labels: alpha donor weights,
+# rho spillover intensity, tau treatment effect, sigma error scale.
+allowed-confusables = ["α", "ρ", "τ", "σ", "β", "γ", "η", "ξ", "ω", "φ", "ψ", "λ", "−"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"scspill/tests/*" = ["D"]
+"docs/*" = ["D"]
+"tools/*" = ["D"]
+"benchmarks/*" = ["D"]
+# json_encoders in the pydantic Config blocks (mlsynth-inherited surface).
+"scspill/config_models.py" = ["RUF012"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+ignore_missing_imports = true
+files = ["scspill"]
+exclude = ["scspill/tests"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "--strict-markers --strict-config"
+testpaths = ["scspill/tests"]
+markers = [
+    "slow: long-running tests (full-length MCMC chains, large Monte-Carlo designs)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["scspill"]
+branch = true
+omit = ["scspill/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECKING:"]

@@ -1,0 +1,33 @@
+# Untracked local reference material (not part of the package)
+/geometrics-main/
+/mlsynth-main/
+/r_sc_bayes_spatial/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Quarto (keep committed _freeze execution results; ignore rendered site)
+docs/_site/
+docs/.quarto/
+docs/reference/
+!docs/reference/_sidebar.yml
+/.quarto/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
