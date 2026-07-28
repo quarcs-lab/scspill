@@ -4,13 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scspill"
-version = "0.1.0"
+version = "0.1.1"
 description = "Bayesian spatial-spillover synthetic control (Sakaguchi & Tagawa) for causal inference on panel data."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Carlos Mendez", email = "carlosmendez777@gmail.com" }]
+# Emails are deliberately omitted here: an author entry carrying one is split
+# into Author-email, which would break the three names out of a single ordered
+# Author line. The contact address lives on the maintainer entry instead.
+authors = [
+    { name = "Carlos Mendez" },
+    { name = "Shosei Sakaguchi" },
+    { name = "Hayato Tagawa" },
+]
+maintainers = [{ name = "Carlos Mendez", email = "carlosmendez777@gmail.com" }]
 keywords = [
     "synthetic control",
     "spillover effects",
@@ -51,6 +59,7 @@ Homepage = "https://github.com/quarcs-lab/scspill"
 Documentation = "https://quarcs-lab.github.io/scspill/"
 Repository = "https://github.com/quarcs-lab/scspill"
 Issues = "https://github.com/quarcs-lab/scspill/issues"
+Paper = "https://doi.org/10.1093/ectj/utag006"
 
 [dependency-groups]
 dev = [

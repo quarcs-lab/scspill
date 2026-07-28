@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.1.1 (2026-07-28)
+
+Attribution and citation metadata only — no functional change to the
+estimator, and results are bit-for-bit identical to v0.1.0.
+
+- The software's citation title is now *Bayesian Synthetic Control with
+  Spillovers in Python*, and Shosei Sakaguchi and Hayato Tagawa are credited
+  as co-authors alongside Carlos Mendez, in `CITATION.cff` and in the package
+  metadata. They authored the method and the R/C++ implementation this
+  package ports; the Python implementation is Carlos Mendez's.
+- `LICENSE` now retains the original implementation's MIT copyright notice
+  (Shosei Sakaguchi and Hayato Tagawa) alongside this package's.
+- Citations throughout the README, documentation, and module docstrings now
+  carry the article's year (2026) and DOI (`10.1093/ectj/utag006`), and
+  `CITATION.cff` additionally references the replication package
+  (`10.5281/zenodo.19066186`).
+- The documentation site gained a "Citing" section, which it previously
+  lacked entirely.
+
 ## v0.1.0 (2026-07-28)
 
 Initial release: a Python implementation of the Bayesian spatial-spillover
