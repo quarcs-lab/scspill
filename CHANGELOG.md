@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.2.0 (2026-07-28)
+
+scspill is now presented as what it is becoming: a package of **synthetic
+control models with spillover effects**, of which Sakaguchi & Tagawa's is the
+first and, today, the only one. Estimation is unchanged — same samplers, same
+numbers, same public API.
+
+- **`SCSPILLConfig` gains `method`**, a `Literal["sar"]` defaulting to the only
+  implemented model, so existing code is unaffected. Results carry the value
+  as `SCSPILLResults.method`, and `method_details.method_name` is now
+  `"SCSPILL/sar"`. Models added later become a new value plus a subpackage
+  rather than a new class. The literal deliberately lists only what exists:
+  the roadmap names are rejected, not silently accepted.
+- **Internal layout separates the shared spillover layer from the model.** The
+  `sar` model's samplers, kernels, identification formulas, inference assembly
+  and pipeline moved to `scspill/utils/scspill_helpers/sar/`; the MCMC
+  diagnostics and classical-SCM baseline moved up to `scspill/utils/`, and the
+  spatial-weight primitives to a new `scspill/utils/spatial.py`. The shared
+  root now mirrors mlsynth's equivalent level exactly. Public imports are
+  unaffected; code importing private helper paths must follow the move.
+- **Documentation gains a Models section** — a catalogue with a clearly
+  labelled roadmap (Cao & Dowd, the inclusive SCM of Di Stefano & Mellace, and
+  Grossi et al.'s partial-interference SCG, none implemented) and a page per
+  model. The method article is now the `sar` model's page; its published URL
+  still resolves.
+- **Fixes a latent crash**: the default plot filename is derived from
+  `method_name`, so a name containing `/` made `save=True` write into a
+  directory that does not exist. The slug is now sanitized.
+
 ## v0.1.1 (2026-07-28)
 
 Attribution and citation metadata only — no functional change to the

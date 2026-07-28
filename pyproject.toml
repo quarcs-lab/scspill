@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scspill"
-version = "0.1.1"
+version = "0.2.0"
 description = "Synthetic control models with spillover effects: causal inference on panel data when the treatment reaches the donor pool."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -119,7 +119,7 @@ If you use scspill, please cite both the software and the methodological
 article (machine-readable metadata lives in `CITATION.cff`):
 
 > Mendez, C., Sakaguchi, S., & Tagawa, H. (2026). *Synthetic Control Models
-> with Spillovers in Python* (version 0.1.1).
+> with Spillovers in Python* (version 0.2.0).
 > <https://github.com/quarcs-lab/scspill>
 
 > Sakaguchi, S., & Tagawa, H. (2026). Identification and Bayesian Inference
