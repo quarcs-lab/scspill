@@ -80,6 +80,7 @@ class SCSPILL:
         self.treat = config.treat
         self.unitid = config.unitid
         self.time = config.time
+        self.method = config.method
         self.display_graphs = config.display_graphs
 
     def fit(self) -> SCSPILLResults:
@@ -121,6 +122,8 @@ class SCSPILL:
             raise ScspillDataError(f"SCSPILL data preparation failed: {exc}") from exc
 
         try:
+            if cfg.method != "sar":  # pragma: no cover - pydantic rejects this first
+                raise ScspillConfigError(f"SCSPILL: unknown method {cfg.method!r}.")
             fit = run_scspill(
                 inputs,
                 p_factors=cfg.p_factors,
@@ -180,9 +183,10 @@ class SCSPILL:
         results = SCSPILLResults(
             **submodels,
             method_details=MethodDetailsResults(
-                method_name="SCSPILL",
+                method_name=f"SCSPILL/{cfg.method}",
                 is_recommended=True,
                 parameters_used={
+                    "method": cfg.method,
                     "m_iter": cfg.m_iter,
                     "burn": cfg.burn,
                     "p_factors": cfg.p_factors,
@@ -195,6 +199,7 @@ class SCSPILL:
                     "backend": cfg.backend,
                 },
             ),
+            method=cfg.method,
             inputs=inputs,
             alpha_posterior=fit.alpha_posterior,
             sar_posterior=fit.sar_posterior,

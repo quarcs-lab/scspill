@@ -73,3 +73,17 @@ def test_display_graphs_fit_path(sar_panel):
     res = SCSPILL(base_config_kwargs(sar_panel, m_iter=200, burn=100, display_graphs=True)).fit()
     assert res is not None
     plt.close("all")
+
+
+def test_save_true_writes_a_file_not_a_path(fitted, tmp_path, monkeypatch):
+    """`save=True` derives a filename from method_name, which contains a slash.
+
+    Regression: an unsanitized "SCSPILL/sar" produced savefig("SCSPILL/sar_plot.png"),
+    i.e. a write into a directory that does not exist.
+    """
+    monkeypatch.chdir(tmp_path)
+    fitted.plot(kind="counterfactual", display=False, save=True)
+    written = list(tmp_path.glob("*.png"))
+    assert written, "save=True wrote nothing"
+    assert all("/" not in p.name for p in written)
+    plt.close("all")

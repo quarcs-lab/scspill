@@ -46,7 +46,10 @@ def test_submodels_populated(res):
     assert isinstance(res.weights, WeightsResults)
     assert isinstance(res.inference, InferenceResults)
     assert isinstance(res.method_details, MethodDetailsResults)
-    assert res.method_details.method_name == "SCSPILL"
+    # "<estimator>/<model>": the suffix names which spillover model ran.
+    assert res.method_details.method_name == f"SCSPILL/{res.method}"
+    assert res.method == "sar"
+    assert res.method_details.parameters_used["method"] == "sar"
 
 
 # ---------------------------------------------------------------------------

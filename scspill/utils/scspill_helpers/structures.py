@@ -285,10 +285,19 @@ class SCSPILLResults(BaseEstimatorResults):
     * :attr:`effects_detail` -- ATT draws, counterfactual band, and the
       per-donor spillover panel;
     * :attr:`scm_weights` -- classical simplex-SCM comparator weights.
+
+    :attr:`method` records which spillover model produced the fit. It mirrors
+    ``SCSPILLConfig.method`` and the suffix of
+    ``method_details.method_name`` (``"SCSPILL/<method>"``). Only ``"sar"``
+    exists today; a model added later declares its own posterior blocks
+    alongside :attr:`alpha_posterior` / :attr:`sar_posterior`, which are
+    SAR-specific, while :attr:`inputs`, :attr:`effects_detail` and the flat
+    effect surface are the cross-model contract.
     """
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, extra="forbid")
 
+    method: str = "sar"
     inputs: SCSPILLInputs
     alpha_posterior: AlphaPosterior
     sar_posterior: SARPosterior

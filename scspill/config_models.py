@@ -9,6 +9,7 @@ inheriting :class:`BaseEstimatorConfig`, and a result object subclassing
 :class:`MethodDetailsResults`).
 """
 
+import re
 from typing import Any
 
 import numpy as np
@@ -558,7 +559,11 @@ class BaseEstimatorResults(ScspillResult):
 
             fig = ax.figure
             if pc.save:
-                fname = pc.save if isinstance(pc.save, str) else f"{method or 'scspill'}_plot.png"
+                # `method` is the method_details name, which carries a
+                # "<estimator>/<model>" separator -- slugify it so the default
+                # filename never reads as a path into a missing directory.
+                slug = re.sub(r"[^\w.-]+", "-", method or "scspill")
+                fname = pc.save if isinstance(pc.save, str) else f"{slug}_plot.png"
                 fig.savefig(fname, bbox_inches="tight")
             if pc.display:
                 plt.show()

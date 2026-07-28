@@ -115,3 +115,24 @@ def test_r_argument_mapping_documented():
     doc = SCSPILLConfig.__doc__
     assert "``M``" in doc and "m_iter" in doc
     assert "treatment_dummy" in doc
+
+
+# ---------------------------------------------------------------------------
+# MODEL SELECTION (the `method` dispatch seam)
+# ---------------------------------------------------------------------------
+
+
+def test_method_defaults_to_sar(panel):
+    """Omitting `method` must keep selecting the only implemented model."""
+    assert _cfg(panel).method == "sar"
+
+
+def test_method_accepts_sar_explicitly(panel):
+    assert _cfg(panel, method="sar").method == "sar"
+
+
+def test_planned_methods_are_rejected_not_silently_accepted(panel):
+    """The roadmap names must not validate: they are not implemented."""
+    for planned in ("cd", "iscm", "grossi"):
+        with pytest.raises(ValidationError):
+            _cfg(panel, method=planned)
