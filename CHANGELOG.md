@@ -5,7 +5,7 @@
 Attribution and citation metadata only — no functional change to the
 estimator, and results are bit-for-bit identical to v0.1.0.
 
-- The software's citation title is now *Bayesian Synthetic Control with
+- The software's citation title is now *Synthetic Control Models with
   Spillovers in Python*, and Shosei Sakaguchi and Hayato Tagawa are credited
   as co-authors alongside Carlos Mendez, in `CITATION.cff` and in the package
   metadata. They authored the method and the R/C++ implementation this

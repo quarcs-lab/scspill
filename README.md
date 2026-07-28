@@ -101,7 +101,7 @@ make docs      # quartodoc build -> quarto render -> llms.txt
 If you use scspill, please cite both the software and the methodological
 article (machine-readable metadata lives in `CITATION.cff`):
 
-> Mendez, C., Sakaguchi, S., & Tagawa, H. (2026). *Bayesian Synthetic Control
+> Mendez, C., Sakaguchi, S., & Tagawa, H. (2026). *Synthetic Control Models
 > with Spillovers in Python* (version 0.1.1).
 > <https://github.com/quarcs-lab/scspill>
 
