@@ -25,7 +25,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..exceptions import ScspillDataError
-from ..utils.scspill_helpers.setup import row_normalize
+from ..utils.spatial import row_normalize
 
 
 def rook_W(nrow: int, ncol: int, normalize: bool = False) -> np.ndarray:

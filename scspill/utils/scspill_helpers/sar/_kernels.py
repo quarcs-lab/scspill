@@ -25,7 +25,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from ...exceptions import ScspillConfigError
+from ....exceptions import ScspillConfigError
 
 #: Universal clipping bounds for scale parameters, matching the C++ reference.
 FLO = 1e-12

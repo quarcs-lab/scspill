@@ -24,11 +24,11 @@ import pandas as pd
 from threadpoolctl import threadpool_limits
 
 from ..exceptions import ScspillConfigError
-from ..utils.scspill_helpers._kernels import resolve_backend
-from ..utils.scspill_helpers.effects import RhoSolver
-from ..utils.scspill_helpers.sampler_alpha import hs_alpha_gibbs
-from ..utils.scspill_helpers.sampler_sar import sar_step2_sampler
-from ..utils.scspill_helpers.scm_baseline import classical_scm_weights
+from ..utils.scm_baseline import classical_scm_weights
+from ..utils.scspill_helpers.sar._kernels import resolve_backend
+from ..utils.scspill_helpers.sar.effects import RhoSolver
+from ..utils.scspill_helpers.sar.sampler_alpha import hs_alpha_gibbs
+from ..utils.scspill_helpers.sar.sampler_sar import sar_step2_sampler
 from .dgp import SimDGP, SimTruth, make_w, paper_alpha, rook_W, scspill_sim_dgp
 
 _METHODS = ("SCM", "BSCM", "SCSPILL")

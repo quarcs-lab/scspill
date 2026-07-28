@@ -231,7 +231,7 @@ def geweke_test(
     rng = np.random.default_rng(seed)
 
     if isinstance(kernel, str):
-        from ..utils.scspill_helpers.setup import normalize_w, row_normalize
+        from ..utils.spatial import normalize_w, row_normalize
 
         W_raw = spatial_W if spatial_W is not None else _chain_graph(N)
         Wn = row_normalize(np.asarray(W_raw, dtype=float))

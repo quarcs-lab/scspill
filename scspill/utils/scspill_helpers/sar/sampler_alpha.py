@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from ...exceptions import ScspillDataError
+from ....exceptions import ScspillDataError
+from ..structures import AlphaPosterior
 from ._kernels import resolve_backend
-from .structures import AlphaPosterior
 
 
 def hs_alpha_gibbs(
@@ -49,7 +49,7 @@ def hs_alpha_gibbs(
         Total iterations and burn-in; ``iters - burn`` draws are retained.
     kernels : namespace, optional
         Kernel backend from
-        :func:`scspill.utils.scspill_helpers._kernels.resolve_backend`;
+        :func:`scspill.utils.scspill_helpers.sar._kernels.resolve_backend`;
         defaults to the NumPy reference kernels.
 
     Returns

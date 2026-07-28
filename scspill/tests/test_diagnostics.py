@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from scspill.utils.scspill_helpers.diagnostics import (
+from scspill.utils.diagnostics import (
     ess_acf,
     geweke_z,
     mcmc_summary,

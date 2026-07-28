@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from scspill import SCSPILL
-from scspill.utils.scspill_helpers._kernels import resolve_backend
+from scspill.utils.scspill_helpers.sar._kernels import resolve_backend
 
 from .conftest import base_config_kwargs
 

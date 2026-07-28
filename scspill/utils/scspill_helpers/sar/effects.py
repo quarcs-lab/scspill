@@ -29,8 +29,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from ...exceptions import ScspillEstimationError
-from .structures import SCSPILLEffects, SCSPILLInputs
+from ....exceptions import ScspillEstimationError
+from ..structures import SCSPILLEffects, SCSPILLInputs
 
 
 def _robust_solve(Amat: np.ndarray, B: np.ndarray) -> np.ndarray:

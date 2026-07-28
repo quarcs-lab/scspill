@@ -34,8 +34,8 @@ from ..exceptions import (
 from ..utils.datautils import balance
 from ..utils.results_helpers import build_effect_submodels, make_weights_results
 from ..utils.scspill_helpers.config import SCSPILLConfig
-from ..utils.scspill_helpers.inference import build_inference, prediction_interval_spec
-from ..utils.scspill_helpers.pipeline import run_scspill
+from ..utils.scspill_helpers.sar.inference import build_inference, prediction_interval_spec
+from ..utils.scspill_helpers.sar.pipeline import run_scspill
 from ..utils.scspill_helpers.setup import prepare_scspill_inputs
 from ..utils.scspill_helpers.structures import SCSPILLResults
 

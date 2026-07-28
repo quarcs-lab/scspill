@@ -9,8 +9,8 @@ Two interchangeable kernels drive :func:`scspill.validation.geweke.geweke_test`:
   This is the appendix's test target and is directly comparable to the R
   package's frozen Geweke table.
 * :class:`ProductionKernel` -- wraps the production Step-2 sampler's
-  :func:`~scspill.utils.scspill_helpers.sampler_sar.one_sweep` and
-  :func:`~scspill.utils.scspill_helpers.sampler_sar.draw_prior_state`, so
+  :func:`~scspill.utils.scspill_helpers.sar.sampler_sar.one_sweep` and
+  :func:`~scspill.utils.scspill_helpers.sar.sampler_sar.draw_prior_state`, so
   the test validates the sampler users actually run (AR(1) latent factors,
   horseshoe hierarchies, half-Cauchy scale mixtures).
 
@@ -24,8 +24,8 @@ from dataclasses import dataclass, replace
 import numpy as np
 
 from ..exceptions import ScspillDataError
-from ..utils.scspill_helpers._kernels import _clip, _ig
-from ..utils.scspill_helpers.sampler_sar import (
+from ..utils.scspill_helpers.sar._kernels import _clip, _ig
+from ..utils.scspill_helpers.sar.sampler_sar import (
     SARData,
     SARState,
     draw_prior_state,
@@ -329,9 +329,9 @@ class SimpleKernel:
 class ProductionKernel:
     """Geweke kernel wrapping the production Step-2 sampler.
 
-    Uses :func:`~scspill.utils.scspill_helpers.sampler_sar.draw_prior_state`
+    Uses :func:`~scspill.utils.scspill_helpers.sar.sampler_sar.draw_prior_state`
     for the marginal-conditional side and
-    :func:`~scspill.utils.scspill_helpers.sampler_sar.one_sweep` (fixed
+    :func:`~scspill.utils.scspill_helpers.sar.sampler_sar.one_sweep` (fixed
     Metropolis step, no adaptation) as the transition -- so a passing test
     certifies the sampler users actually run, including the AR(1) factor
     block and the horseshoe-on-``beta`` hierarchy.

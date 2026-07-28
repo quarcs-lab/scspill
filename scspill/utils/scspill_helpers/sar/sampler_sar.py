@@ -32,9 +32,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from ...exceptions import ScspillDataError
+from ....exceptions import ScspillDataError
+from ..structures import SARPosterior
 from ._kernels import FLO, _chol_sym, _clip, _ig, _rho_loglik, _sym, resolve_backend
-from .structures import SARPosterior
 
 
 def rho_stability_bound(Wn: np.ndarray) -> float:
@@ -406,7 +406,7 @@ def one_sweep(state: SARState, data: SARData, rng: np.random.Generator) -> SARSt
     """One full Gibbs/Metropolis sweep of the Step-2 sampler (in place).
 
     Mirrors one iteration of the batch loop in
-    :mod:`scspill.utils.scspill_helpers._kernels` exactly -- same block
+    :mod:`scspill.utils.scspill_helpers.sar._kernels` exactly -- same block
     order, same conditionals, same random-generator consumption -- with a
     fixed Metropolis step (no adaptation; the Geweke test requires a fixed
     Markov transition kernel). A parity test asserts draw-for-draw equality

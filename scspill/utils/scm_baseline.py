@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, minimize
 
-from ...exceptions import ScspillEstimationError
+from ..exceptions import ScspillEstimationError
 
 
 def classical_scm_weights(

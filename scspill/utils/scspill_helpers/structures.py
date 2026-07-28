@@ -329,7 +329,7 @@ class SCSPILLResults(BaseEstimatorResults):
     @property
     def rho_ess(self) -> float:
         """Effective sample size of the ``rho`` chain."""
-        from .diagnostics import ess_acf
+        from ..diagnostics import ess_acf
 
         return ess_acf(self.sar_posterior.rho)
 
@@ -391,7 +391,7 @@ class SCSPILLResults(BaseEstimatorResults):
             ``q50``, ``q975``, ``ess``, ``rhat_split``, ``mcse``,
             ``geweke_z``.
         """
-        from .diagnostics import mcmc_summary
+        from ..diagnostics import mcmc_summary
 
         chains: dict[str, np.ndarray] = {
             "rho": self.sar_posterior.rho,

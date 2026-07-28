@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from scspill.utils.scspill_helpers.scm_baseline import (
+from scspill.utils.scm_baseline import (
     classical_scm_counterfactual,
     classical_scm_weights,
 )

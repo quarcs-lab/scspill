@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from scspill.utils.scspill_helpers._kernels import resolve_backend
-from scspill.utils.scspill_helpers.sampler_sar import (
+from scspill.utils.scspill_helpers.sar._kernels import resolve_backend
+from scspill.utils.scspill_helpers.sar.sampler_sar import (
     SARState,
     draw_prior_state,
     initial_state,
@@ -169,7 +169,7 @@ def test_factor_and_covariate_branches_run():
 
 def test_logdet_matches_slogdet():
     """Eigen-cached log-determinant equals dense slogdet of (I - rho A)."""
-    from scspill.utils.scspill_helpers._kernels import _rho_loglik
+    from scspill.utils.scspill_helpers.sar._kernels import _rho_loglik
 
     _Yc_pre, truth, _ = _sar_pre_data(seed=13)
     alpha = truth["alpha"]

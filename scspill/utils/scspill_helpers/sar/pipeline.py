@@ -18,13 +18,13 @@ from __future__ import annotations
 import numpy as np
 from threadpoolctl import threadpool_limits
 
+from ...diagnostics import mcmc_summary
+from ...scm_baseline import classical_scm_weights
+from ..structures import SCSPILLFit, SCSPILLInputs
 from ._kernels import resolve_backend
-from .diagnostics import mcmc_summary
 from .effects import RhoSolver, posterior_effects
 from .sampler_alpha import hs_alpha_gibbs
 from .sampler_sar import sar_step2_sampler
-from .scm_baseline import classical_scm_weights
-from .structures import SCSPILLFit, SCSPILLInputs
 
 
 def run_scspill(

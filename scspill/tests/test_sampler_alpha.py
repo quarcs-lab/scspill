@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from scspill.exceptions import ScspillDataError
-from scspill.utils.scspill_helpers.sampler_alpha import alpha_scaling, hs_alpha_gibbs
+from scspill.utils.scspill_helpers.sar.sampler_alpha import alpha_scaling, hs_alpha_gibbs
 from scspill.utils.scspill_helpers.structures import AlphaPosterior
 
 from .conftest import assert_chains_reproducible

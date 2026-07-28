@@ -1,7 +1,7 @@
 """Optional numba-compiled sampler kernels.
 
 Compiles the very same loop functions defined in
-:mod:`scspill.utils.scspill_helpers._kernels` with ``numba.njit`` -- the two
+:mod:`scspill.utils.scspill_helpers.sar._kernels` with ``numba.njit`` -- the two
 backends share one source, so they cannot drift algorithmically (they are not
 bit-identical, because JIT compilation may reassociate floating-point
 operations).

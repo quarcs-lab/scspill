@@ -14,9 +14,9 @@ import pandas as pd
 from threadpoolctl import threadpool_limits
 
 from ..exceptions import ScspillConfigError, ScspillDataError
-from ..utils.scspill_helpers._kernels import _ig
-from ..utils.scspill_helpers.sampler_sar import sar_step2_sampler
-from ..utils.scspill_helpers.setup import normalize_w, row_normalize
+from ..utils.scspill_helpers.sar._kernels import _ig
+from ..utils.scspill_helpers.sar.sampler_sar import sar_step2_sampler
+from ..utils.spatial import normalize_w, row_normalize
 from .kernels import SimpleKernel, SimpleState
 from .structures import PosteriorSummary, PriorPredictiveResult, PriorSensitivityResult
 

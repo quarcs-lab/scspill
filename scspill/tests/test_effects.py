@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from scspill.exceptions import ScspillEstimationError
-from scspill.utils.scspill_helpers.effects import (
+from scspill.utils.scspill_helpers.sar.effects import (
     RhoSolver,
     counterfactual_controls,
     posterior_effects,
