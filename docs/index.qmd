@@ -1,7 +1,7 @@
 ---
 ---
 
-![scspill — Bayesian synthetic control with spillovers, in Python](images/hero-v2.png){fig-align="center" fig-alt="scspill — observed and synthetic California diverging after intervention as effects spill through a donor network"}
+![scspill — Bayesian synthetic control with spillovers, in Python](images/hero-v4.png){fig-align="center" fig-alt="scspill — conceptual spillover network above dark-themed observed-versus-synthetic California and donor spillover plots"}
 
 ::: {.text-center}
 **Synthetic control when the treatment leaks: estimate the policy effect *and* the spillover received by every donor.**

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/quarcs-lab/scspill/main/docs/images/hero-v2.png" alt="scspill — Bayesian synthetic control with spillovers" width="85%">
+  <img src="https://raw.githubusercontent.com/quarcs-lab/scspill/main/docs/images/hero-v4.png" alt="scspill — Bayesian synthetic control with spillovers and key result plots" width="85%">
 </p>
 
 # scspill
