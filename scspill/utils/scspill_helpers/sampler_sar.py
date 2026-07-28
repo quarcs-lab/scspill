@@ -375,13 +375,12 @@ def draw_prior_state(data: SARData, rng: np.random.Generator) -> SARState:
         state.omega = np.array([_clip(_ig(rng, 0.5, 1.0 / state.nu_omega[k])) for k in range(p)])
         state.nu_s2_eta = _clip(_ig(rng, 0.5, 1.0 / 100.0))
         state.s2_eta = _clip(_ig(rng, 0.5, 1.0 / state.nu_s2_eta))
-        eta_sd = np.sqrt(state.s2_eta / state.omega)  # (p,)
+        eta_sd = np.sqrt(state.s2_eta * state.omega)  # var = s2_eta * omega_k
         state.Eta = rng.standard_normal((N, p)) * eta_sd[None, :]
+        # gamma_0 = 0: gamma_1 ~ N(0, s2_g I), then the AR(1) recursion.
         g = np.empty((p, T0))
-        g[:, 0] = rng.standard_normal(p) * np.sqrt(
-            _clip(state.s2_g) / max(1e-6, 1.0 - state.phi_g**2)
-        )
         sd_g = np.sqrt(_clip(state.s2_g))
+        g[:, 0] = sd_g * rng.standard_normal(p)
         for t in range(1, T0):
             g[:, t] = state.phi_g * g[:, t - 1] + sd_g * rng.standard_normal(p)
         state.Gamma = g
@@ -449,7 +448,8 @@ def one_sweep(state: SARState, data: SARData, rng: np.random.Generator) -> SARSt
         pred_f = np.zeros((T0, p))
         Ppred_f = np.zeros((T0, p, p))
         gprev = np.zeros(p)
-        Pprev = (_clip(s2_g) / max(1e-6, 1.0 - phi_g * phi_g)) * I_p
+        Pprev = 0.0 * I_p  # gamma_0 = 0 -> gamma_1 ~ N(0, s2_g I); see _kernels
+
         for t in range(T0):
             pred = phi_g * gprev
             Ppred = (phi_g * phi_g) * Pprev + _clip(s2_g) * I_p
@@ -489,10 +489,10 @@ def one_sweep(state: SARState, data: SARData, rng: np.random.Generator) -> SARSt
         state.s2_g = s2_g = _clip(_ig(rng, 0.5 + 0.5 * p * T0, sc_g + 1.0 / _clip(state.nu_s2_g)))
         state.nu_s2_g = _clip(_ig(rng, 1.0, 1.0 / _clip(s2_g) + 1.0 / 100.0))
 
-        # (2) factor loadings Eta (shared row covariance)
+        # (2) factor loadings Eta: eta_i ~ N(0, s2_eta diag(omega)); see _kernels
         GtG = Gamma @ Gamma.T.copy()
-        Dom = np.diag(state.omega)
-        Vrow = np.linalg.inv(_sym(GtG / _clip(s2) + Dom / _clip(state.s2_eta)))
+        Dom_inv = np.diag(1.0 / np.maximum(state.omega, FLO))
+        Vrow = np.linalg.inv(_sym(GtG / _clip(s2) + Dom_inv / _clip(state.s2_eta)))
         Lrow = _chol_sym(Vrow)
         RHS = Gamma @ Ystar  # (p, N)
         Z = rng.standard_normal((p, N))
@@ -501,7 +501,7 @@ def one_sweep(state: SARState, data: SARData, rng: np.random.Generator) -> SARSt
         sc_eta = 0.0
         for i in range(N):
             ei = Eta[i]
-            sc_eta += float(ei @ (Dom @ ei))
+            sc_eta += float(ei @ (Dom_inv @ ei))
         state.s2_eta = _clip(
             _ig(rng, 0.5 + 0.5 * p * N, 0.5 * sc_eta + 1.0 / _clip(state.nu_s2_eta))
         )

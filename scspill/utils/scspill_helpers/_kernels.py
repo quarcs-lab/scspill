@@ -279,7 +279,12 @@ def sar_step2_loop(
             pred_f = np.zeros((T0, p))
             Ppred_f = np.zeros((T0, p, p))
             gprev = np.zeros(p)
-            Pprev = (_clip(s2_g) / max(1e-6, 1.0 - phi_g * phi_g)) * I_p
+            # gamma_0 = 0, so gamma_1 ~ N(0, s2_g I): P_0 = 0. (The C++ used a
+            # stationary P_0 while its phi/s2_g conditionals assume gamma_1 ~
+            # N(0, s2_g) -- mutually inconsistent; the Geweke joint
+            # distribution test flags that combination, so the coherent
+            # initialization is used here.)
+            Pprev = 0.0 * I_p
             for t in range(T0):
                 pred = phi_g * gprev
                 Ppred = (phi_g * phi_g) * Pprev + _clip(s2_g) * I_p
@@ -323,10 +328,14 @@ def sar_step2_loop(
             s2_g = _clip(_ig(rng, 0.5 + 0.5 * p * T0, sc_g + 1.0 / _clip(nu_s2_g)))
             nu_s2_g = _clip(_ig(rng, 1.0, 1.0 / _clip(s2_g) + 1.0 / 100.0))
 
-            # (2) factor loadings Eta (shared row covariance)
+            # (2) factor loadings Eta (shared row covariance).
+            # Paper parametrization: eta_i ~ N(0, s2_eta * diag(omega)), so the
+            # prior precision is diag(1/omega) / s2_eta. (The C++ used
+            # diag(omega) here while its omega update assumed the paper's
+            # form -- incoherent conditionals flagged by the Geweke test.)
             GtG = Gamma @ Gamma.T.copy()
-            Dom = np.diag(omega)
-            Vrow = np.linalg.inv(_sym(GtG / _clip(s2) + Dom / _clip(s2_eta)))
+            Dom_inv = np.diag(1.0 / np.maximum(omega, FLO))
+            Vrow = np.linalg.inv(_sym(GtG / _clip(s2) + Dom_inv / _clip(s2_eta)))
             Lrow = _chol_sym(Vrow)
             RHS = Gamma @ Ystar  # (p, N)
             Z = rng.standard_normal((p, N))
@@ -335,7 +344,7 @@ def sar_step2_loop(
             sc_eta = 0.0
             for i in range(N):
                 ei = Eta[i]
-                sc_eta += float(ei @ (Dom @ ei))
+                sc_eta += float(ei @ (Dom_inv @ ei))
             s2_eta = _clip(_ig(rng, 0.5 + 0.5 * p * N, 0.5 * sc_eta + 1.0 / _clip(nu_s2_eta)))
             nu_s2_eta = _clip(_ig(rng, 1.0, 1.0 / _clip(s2_eta) + 1.0 / 100.0))
             for k in range(p):
