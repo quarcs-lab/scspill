@@ -1,0 +1,54 @@
+# scspill
+
+> Bayesian spatial-spillover synthetic control (Sakaguchi & Tagawa, The
+> Econometrics Journal) in Python: estimate a policy's effect on the treated
+> unit AND the spillover received by every donor, from a long panel plus
+> user-supplied spatial weights. Two-step MCMC (horseshoe synthetic weights,
+> SAR spillover block); pydantic config in, standardized results out
+> (mlsynth-style architecture).
+
+Install: `pip install scspill` (or `pip install "scspill[numba]"` for
+JIT-compiled samplers).
+
+Minimal contract: SCSPILL({df, outcome, treat, unitid, time, spatial_w,
+spatial_W, covariates?, m_iter, burn, seed}).fit() -> result with .att,
+.att_ci, .rho_hat, .rho_ci, .counterfactual, .spillover_panel,
+.diagnostics(), .plot(). The treated unit and date are inferred from the
+0/1 `treat` column; spatial weights align by donor label.
+
+## Docs
+
+- [Get started (California Prop 99)](https://quarcs-lab.github.io/scspill/get-started.html)
+- [Sudan case study](https://quarcs-lab.github.io/scspill/sudan.html)
+- [The method](https://quarcs-lab.github.io/scspill/articles/method.html)
+- [Validating the sampler](https://quarcs-lab.github.io/scspill/articles/validation.html)
+- [The Monte Carlo simulation study](https://quarcs-lab.github.io/scspill/articles/simulation-study.html)
+- [The bundled datasets](https://quarcs-lab.github.io/scspill/articles/datasets.html)
+- [For AI / LLMs](https://quarcs-lab.github.io/scspill/use-with-llms.html)
+- [Changelog](https://quarcs-lab.github.io/scspill/changelog.html)
+
+- [API reference](https://quarcs-lab.github.io/scspill/reference/index.html)
+
+## API
+
+### Top level
+
+`SCSPILL`, `SCSPILLConfig`, `SCSPILLResults`
+
+### scspill.validation
+
+`GewekeReport`, `PosteriorSummary`, `PriorPredictiveResult`, `PriorSensitivityResult`, `ProductionKernel`, `SimpleKernel`, `SimpleState`, `batch_means_variance`, `default_g_fn`, `geweke_test`, `plot_geweke`, `plot_prior_predictive`, `ppc_stats`, `prior_predictive`, `prior_sensitivity`, `run_posterior_mcmc`, `simulate_yc_forward`
+
+### scspill.simulate
+
+`SimDGP`, `SimRunResult`, `SimTruth`, `load_r_mc_reference`, `make_w`, `mc_grid`, `rook_W`, `run_many_sim`, `run_one_sim`, `scspill_sim_dgp`, `summarize_many`
+
+### scspill.data
+
+`SpillPanel`, `load_california`, `load_sudan`
+
+## Full corpus
+
+- [llms-full.txt](https://quarcs-lab.github.io/scspill/llms-full.txt) — every docs page's source plus
+  every public signature and docstring.
+

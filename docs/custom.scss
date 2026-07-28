@@ -1,0 +1,170 @@
+/*-- scss:rules --*/
+
+// "source" link inserted below each reference-page title (build_reference_enrichment.py).
+// Sits at the right under the function name, muted, like Sphinx/splot's [source] affordance.
+.viewcode-link {
+  display: block;
+  text-align: right;
+  margin: -0.5rem 0 1rem;
+  font-family: var(--bs-font-monospace, monospace);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+
+  &::before {
+    content: "❮❯ ";
+    opacity: 0.7;
+  }
+}
+
+// "↩ docs" back-link beside each definition heading on a _modules source page.
+.viewcode-backlink {
+  font-family: var(--bs-font-monospace, monospace);
+  font-size: 0.75rem;
+  font-weight: 400;
+  margin-left: 0.5rem;
+  opacity: 0.7;
+}
+
+// API reference index (``# API Reference {.doc-index}``): the dense per-function listing reads
+// cleaner without the link underline, and the brief argument signature injected beside each name
+// (build_reference_enrichment.py) is muted monospace so it does not compete with the name.
+.doc-index td:first-child a {
+  text-decoration: none;
+}
+.doc-index .doc-sig {
+  font-family: var(--bs-font-monospace, monospace);
+  font-size: 0.85em;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+// ---------------------------------------------------------------------------
+// Interactive-tools promotion: the per-page "try it" banner, the home-page
+// hero CTAs and module cards, and the shared button styles. Self-contained
+// (no reliance on Bootstrap button classes) and theme-aware via --bs-* vars.
+// ---------------------------------------------------------------------------
+
+// Shared pill buttons.
+.xpd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.05rem;
+  border-radius: 0.55rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.xpd-btn:hover {
+  text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+.xpd-btn--app {
+  background: var(--bs-primary, #2780e3);
+  color: #fff;
+}
+.xpd-btn--app:hover {
+  color: #fff;
+  filter: brightness(0.94);
+}
+.xpd-btn--colab {
+  background: #fff;
+  color: #e8710a;
+  border-color: #f9ab00;
+}
+.xpd-btn--colab:hover {
+  color: #e8710a;
+  background: #fff7e6;
+}
+.xpd-btn--ghost {
+  background: transparent;
+  color: var(--bs-body-color, #212529);
+  border-color: var(--bs-border-color, #dee2e6);
+}
+.xpd-btn--ghost:hover {
+  color: var(--bs-primary, #2780e3);
+  border-color: var(--bs-primary, #2780e3);
+}
+
+// The per-page banner at the top of Explore / Analyze / Learn.
+.try-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  margin: 0.5rem 0 1.75rem;
+  padding: 0.9rem 1.2rem;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-left: 4px solid var(--bs-primary, #2780e3);
+  border-radius: 0.65rem;
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+.try-banner__title {
+  margin: 0;
+  flex: 1 1 16rem;
+  font-size: 1.02rem;
+}
+.try-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+// Home-page hero call-to-action row.
+.hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0.5rem 0 2rem;
+}
+.hero-cta .xpd-btn {
+  padding: 0.6rem 1.3rem;
+  font-size: 1rem;
+}
+
+// Home-page module cards (used inside the Quarto ``.grid``).
+.module-card {
+  height: 100%;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.7rem;
+  background: var(--bs-body-bg, #fff);
+  transition: transform 0.1s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.module-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+  border-color: var(--bs-primary, #2780e3);
+}
+.module-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.4rem;
+}
+.module-card__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-top: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.module-card__links a {
+  text-decoration: none;
+}
+.module-card__links a:hover {
+  text-decoration: underline;
+}
+
+// A compact row of app buttons for the "Try the apps in your browser" section.
+.app-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0.75rem 0 0.5rem;
+}

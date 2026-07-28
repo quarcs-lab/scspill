@@ -1,0 +1,114 @@
+---
+title: "Case study: the 2011 secession of South Sudan"
+subtitle: "Spillovers along a trade network, measured in percent of GDP"
+---
+
+```{=html}
+<div class="try-banner">
+  <span>Run this walkthrough yourself:</span>
+  <a class="xpd-btn xpd-btn--colab" href="https://colab.research.google.com/github/quarcs-lab/scspill/blob/main/notebooks/sudan.ipynb" target="_blank" rel="noopener">▶ Open in Colab</a>
+</div>
+```
+
+In July 2011 South Sudan seceded from Sudan, taking three quarters of the
+oil fields with it. The paper's second application asks what the split cost
+"the Sudans" (Sudan and South Sudan combined) in GDP per capita — and where
+the shock traveled. Spillovers here are not geographic: they move along
+trade links, so the spatial weights are average pre-period bilateral trade
+volumes rather than shared borders.
+
+::: {.callout-note}
+## MCMC budget in this tutorial
+Tutorial scale again (`m_iter=4000, burn=2000`). The paper's production run
+for this application used one million iterations — $\rho$ mixes slowly and
+this panel is short ($T_0 = 11$ pre-treatment years), so treat the numbers
+on this page as illustrative.
+:::
+
+## Load the data
+
+```{python}
+from scspill.data import load_sudan
+
+panel = load_sudan()
+panel.df.head(3)
+```
+
+The outcome is GDP per capita (constant 2015 US$) and six World Development
+Indicators enter as covariates:
+
+```{python}
+panel.outcome, panel.covariates
+```
+
+The exposure vector is raw bilateral trade with Sudan — Egypt and Kenya
+dominate (the estimator normalizes it internally):
+
+```{python}
+panel.spatial_w.sort_values(ascending=False).head(5)
+```
+
+## Fit
+
+```{python}
+from scspill import SCSPILL
+
+result = SCSPILL(
+    {
+        **panel.config_kwargs(),
+        "m_iter": 4000,
+        "burn": 2000,
+        "step_rho": 0.02,
+        "seed": 20251022,
+        "display_graphs": False,
+    }
+).fit()
+
+print(f"ATT: {result.att:.1f} US$ per capita "
+      f"(95% CrI [{result.att_ci[0]:.1f}, {result.att_ci[1]:.1f}])")
+print(f"rho: {result.rho_hat:.3f} "
+      f"(95% CrI [{result.rho_ci[0]:.3f}, {result.rho_ci[1]:.3f}])")
+```
+
+```{python}
+#| fig-cap: "Observed vs. counterfactual GDP per capita for the Sudans."
+result.plot(kind="full", display=False);
+```
+
+## Effects in percent
+
+The paper reports the secession loss as a percentage of the counterfactual:
+
+```{python}
+import numpy as np
+
+T0 = result.inputs.T0
+cf_post = result.effects_detail.cf_mean[T0:]
+gap_post = result.inputs.Y0[T0:] - cf_post
+years = result.inputs.time_labels[T0:]
+for year, g, c in zip(years, gap_post, cf_post):
+    print(f"{year}: {g:+7.1f} US$  ({100 * g / c:+5.1f}% of counterfactual)")
+```
+
+## Spillovers travel the trade network
+
+```{python}
+#| fig-cap: "Top spillover paths: the shock lands on Sudan's largest trade partners."
+result.plot(kind="spill_top", top_n=6, display=False);
+```
+
+```{python}
+spill_post = result.spillover_panel.loc[2011:]
+spill_post.abs().mean().sort_values(ascending=False).head(5).round(2)
+```
+
+## Notes on this application
+
+- The treated unit "Sudan" aggregates Sudan and South Sudan after 2011, so
+  the estimand is the effect of the split on the combined economy.
+- With $T_0 = 11$ pre-periods and 33 donors, the horseshoe prior is doing
+  real work: it shrinks most donor weights to zero and concentrates the fit
+  on a few economies.
+- $\rho$ is estimated around 0.4 here versus about 0.2 in the California
+  application — trade integration transmits more of the shock than a single
+  land border.

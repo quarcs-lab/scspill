@@ -1,0 +1,152 @@
+---
+title: "Get started: California Proposition 99"
+subtitle: "Estimate a policy effect and its spillovers with the bundled tobacco panel"
+aliases:
+  - /quickstart.html
+---
+
+```{=html}
+<div class="try-banner">
+  <span>Run this walkthrough yourself:</span>
+  <a class="xpd-btn xpd-btn--colab" href="https://colab.research.google.com/github/quarcs-lab/scspill/blob/main/notebooks/california.ipynb" target="_blank" rel="noopener">▶ Open in Colab</a>
+</div>
+```
+
+In 1988 California passed Proposition 99, a large tobacco tax and control
+program. The classic synthetic-control analysis (Abadie, Diamond &
+Hainmueller 2010) builds a "synthetic California" from other states and reads
+the program's effect off the gap. But cigarette taxes leak: Californians can
+buy cigarettes in Nevada. If the donors absorb part of the treatment, the
+synthetic control is contaminated and the classical estimate is biased.
+
+scspill models that leakage explicitly. This page walks the full workflow on
+the bundled panel: load the data, fit the two-step Bayesian model, read the
+treatment effect, and — the part classical SCM cannot do — read the spillover
+received by each donor state.
+
+::: {.callout-note}
+## MCMC budget in this tutorial
+The pages in this documentation run a tutorial-scale chain
+(`m_iter=4000, burn=2000`, seconds on a laptop) so they render quickly. The
+paper's production run for California used 100,000 iterations; for serious
+work use at least tens of thousands and check `diagnostics()`.
+:::
+
+## Load the data
+
+`load_california()` returns the panel plus the spatial weights, ready to
+splat into the estimator's configuration:
+
+```{python}
+from scspill.data import load_california
+
+panel = load_california()
+panel.df.head()
+```
+
+Three ingredients matter:
+
+```{python}
+# 1) A 0/1 treatment column: California from 1988 onward.
+panel.df.query("treated == 1").head(3)
+```
+
+```{python}
+# 2) spatial_w: how exposed is each donor to the *treated* unit?
+#    Rook contiguity: Nevada is the only state sharing a border with California.
+panel.spatial_w[panel.spatial_w > 0]
+```
+
+```{python}
+# 3) spatial_W: donor-to-donor contiguity (row-normalized inside the estimator).
+panel.spatial_W.iloc[:5, :5]
+```
+
+## Fit the model
+
+```{python}
+from scspill import SCSPILL
+
+result = SCSPILL(
+    {
+        **panel.config_kwargs(),      # df, columns, weights, covariates
+        "m_iter": 4000,
+        "burn": 2000,
+        "seed": 20251022,
+        "display_graphs": False,
+    }
+).fit()
+```
+
+Under the hood this ran the paper's two-step sampler: a horseshoe Gibbs
+sampler for the synthetic weights $\alpha$ on the 1970–1987 fit, then a
+spatial-autoregressive block that estimates the spillover intensity $\rho$
+(with the retail cigarette price as a covariate and one latent factor), and
+finally the identification formulas that turn the posterior draws into
+effects.
+
+## The treatment effect
+
+```{python}
+print(f"ATT: {result.att:.2f} packs per capita "
+      f"(95% CrI [{result.att_ci[0]:.2f}, {result.att_ci[1]:.2f}])")
+print(f"rho: {result.rho_hat:.3f} "
+      f"(95% CrI [{result.rho_ci[0]:.3f}, {result.rho_ci[1]:.3f}], "
+      f"ESS {result.rho_ess:.0f})")
+```
+
+```{python}
+#| fig-cap: "Observed California vs. its no-treatment counterfactual, with the 95% pointwise credible band."
+result.plot(kind="full", display=False);
+```
+
+```{python}
+#| fig-cap: "The per-year treatment effect with its credible band."
+result.plot(kind="effect", display=False);
+```
+
+## The spillovers
+
+The identification result recovers the effect *received by every donor*.
+The spillover panel is a time-by-donor DataFrame; the plot ranks donors by
+their post-treatment spillover magnitude:
+
+```{python}
+#| fig-cap: "Top spillover paths. Nevada — the only contiguous donor — absorbs the bulk of the leakage."
+result.plot(kind="spill_top", top_n=6, display=False);
+```
+
+```{python}
+spill_post = result.spillover_panel.loc[1988:]
+spill_post.abs().mean().sort_values(ascending=False).head(5).round(3)
+```
+
+## Weights: horseshoe vs. the classical simplex
+
+scspill's weights are unconstrained and horseshoe-shrunk; the classical
+simplex weights are computed alongside for comparison:
+
+```{python}
+#| fig-cap: "Posterior-mean synthetic weights (bars) against classical simplex-SCM weights (dots)."
+result.plot(kind="weights", display=False);
+```
+
+## Convergence diagnostics
+
+```{python}
+result.diagnostics(top_n_alpha=4).round(3)
+```
+
+$\rho$ is the weakly identified parameter of this model — watch its ESS and
+run long chains for publication numbers. The
+[validation article](articles/validation.qmd) shows the full toolkit
+(Geweke test, prior sensitivity, prior predictive checks).
+
+## Where to go next
+
+- [The Sudan case study](sudan.qmd): trade-network weights instead of
+  contiguity, and spillovers measured in percent of GDP.
+- [The method article](articles/method.qmd): the identification result, the
+  samplers, and exactly where this implementation deliberately departs from
+  the R replication package.
+- [The API reference](reference/index.qmd).

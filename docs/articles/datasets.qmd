@@ -1,0 +1,83 @@
+---
+title: "The bundled datasets"
+subtitle: "Provenance and dictionaries for the two case studies"
+---
+
+Both of the paper's empirical applications ship inside the wheel as plain
+CSVs (about 150 kB total), copied verbatim from the replication package's
+nonproprietary export. Each loader returns a `SpillPanel` — the long panel
+with a 0/1 `treated` column, the raw spatial weights aligned by donor label,
+and a `config_kwargs()` helper that feeds `SCSPILLConfig` directly. The
+weights are stored *unnormalized*; the estimator row-normalizes `spatial_W`
+and scales `spatial_w` to sum to one, exactly as the R package does.
+
+## California Proposition 99
+
+```{python}
+from scspill.data import load_california
+
+ca = load_california()
+ca.df.head()
+```
+
+| Field | Value |
+|---|---|
+| Units | 39 U.S. states (38 donors + California) |
+| Periods | 1970–2000 (annual); treatment from 1988 |
+| Outcome | `cigsale` — per-capita cigarette sales (packs) |
+| Covariate | `retprice` — retail cigarette price |
+| `spatial_w` | California's rook-contiguity row (only Nevada = 1) |
+| `spatial_W` | binary rook adjacency among the donors |
+
+Provenance: the Abadie–Diamond–Hainmueller (2010) tobacco panel as
+distributed with Cunningham's *Causal Inference: The Mixtape*; contiguity
+derived from the 2024 TIGER/Line state shapefile with `spdep::poly2nb(queen
+= FALSE)`.
+
+```{python}
+ca.spatial_W.sum(axis=1).sort_values(ascending=False).head(5)  # most-connected donors
+```
+
+## The 2011 Sudan secession
+
+```{python}
+from scspill.data import load_sudan
+
+sd = load_sudan()
+sd.df.head(3)
+```
+
+| Field | Value |
+|---|---|
+| Units | 34 African countries (33 donors + "Sudan") |
+| Periods | 2000–2015 (annual); treatment from 2011 |
+| Outcome | `gdp_pc` — GDP per capita, constant 2015 US$ |
+| Covariates | `exports_gdp_share`, `merchandise_trade_gdp_share`, `trade_gdp_share`, `clean_fuels_access`, `inflation`, `net_migration` |
+| `spatial_w` | average 2000–2010 bilateral trade with Sudan (raw US$) |
+| `spatial_W` | average bilateral trade among donors (raw US$) |
+
+Provenance: World Development Indicators (percentage series stored as
+proportions), with the treated unit aggregating Sudan and South Sudan after
+the split; trade weights from the IMF Direction of Trade Statistics,
+symmetrized and averaged over the pre-period. The loader renames the R
+export's mangled WDI headers to snake_case; pass `raw_names=True` for the
+original headers:
+
+```{python}
+sd.column_map
+```
+
+## Using your own data
+
+Any long panel works. You need:
+
+1. a DataFrame with unit, time, outcome, and 0/1 treatment-indicator
+   columns (1 for the treated unit in post-treatment periods);
+2. `spatial_w`: a Series/dict keyed by donor label (or an array in sorted
+   donor order) measuring each donor's exposure to the treated unit;
+3. `spatial_W`: a labelled DataFrame (or array) of donor-to-donor weights;
+4. optionally, covariate columns.
+
+Alignment is by label wherever labels are given, so the order of your
+weights never has to match the panel's — mismatched or missing donor labels
+raise immediately.

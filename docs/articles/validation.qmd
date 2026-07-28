@@ -1,0 +1,126 @@
+---
+title: "Validating the sampler"
+subtitle: "The Geweke joint distribution test, prior sensitivity, and prior predictive checks"
+---
+
+A Bayesian estimator is only as good as its sampler, so scspill ships the
+paper's appendix machinery as first-class functions. This page runs each at
+documentation scale; the repository's benchmark suite
+(`benchmarks/REPORT.md`) runs them long.
+
+::: {.callout-note}
+The chains on this page are kept short so the site renders quickly; the
+acceptance thresholds quoted here are the ones the long-running benchmarks
+enforce.
+:::
+
+## The Geweke joint distribution test
+
+Geweke (2004) tests a posterior simulator by comparing two ways of drawing
+from the *joint* distribution $p(\theta, y)$: exact iid draws
+($\theta \sim p(\theta)$, then $y \mid \theta$) against the
+*successive-conditional* chain that alternates data simulation with one full
+sweep of the sampler. If — and only if — every conditional is mutually
+consistent with the priors, the two agree in expectation for any statistic
+$g(\theta, y)$.
+
+```{python}
+from scspill.validation import geweke_test, plot_geweke
+
+report = geweke_test(
+    kernel="production",   # the sampler users actually run
+    T0=4, N=4, K=0, p=0,   # a small design keeps the chain fast-mixing
+    m_iid=8000, m_mcmc=8000, burn=1500,
+    a0=3.0, b0=1.0, step_rho=0.5, seed=21,
+)
+report.table.round(3)
+```
+
+```{python}
+#| fig-cap: "z-scores per statistic with the Bonferroni-adjusted acceptance band."
+fig = plot_geweke(report)
+```
+
+Two practical notes, learned the hard way (details in the
+`geweke_test` docstring):
+
+- the successive-conditional chain mixes slowly when the test panel is
+  informative — keep the design small, the Metropolis step generous, and the
+  batch size large;
+- this very test caught two internal inconsistencies in the reference R
+  implementation's latent-factor block (see the
+  [method article](method.qmd)); with the coherent parametrization every
+  isolated sampler block passes.
+
+## Prior sensitivity
+
+`prior_sensitivity` re-runs the Step-2 posterior across a grid of prior
+settings and support restrictions — the paper's robustness table:
+
+```{python}
+import pandas as pd
+from scspill.data import load_california
+from scspill import SCSPILL
+from scspill.validation import prior_sensitivity
+
+panel = load_california()
+fit = SCSPILL({**panel.config_kwargs(), "p_factors": 0, "m_iter": 3000,
+               "burn": 1500, "seed": 20251022, "display_graphs": False}).fit()
+inputs = fit.inputs
+Y0_pre, Yc_pre = inputs.Y0[:inputs.T0], inputs.Yc[:inputs.T0]
+
+grid = pd.DataFrame({
+    "a0": [3.0, 5.0, 2.0],
+    "b0": [1.0, 1.0, 0.5],
+    "rho_lo": [-0.5, -0.3, -0.7],
+    "rho_hi": [0.5, 0.3, 0.7],
+    "step_rho": [0.05, 0.03, 0.07],
+})
+sens = prior_sensitivity(Yc_pre, inputs.W_raw, inputs.w_raw, fit.alpha_hat,
+                         grid, m_burn=1000, m_keep=3000)
+sens.table.query("parameter == 'rho'").round(3)
+```
+
+## Prior predictive checks
+
+Does the model class, under its priors, generate panels that look like the
+observed one? `prior_predictive` simulates donor panels from the prior and
+compares nine summary statistics against the observed California panel — the
+p-values are $P(h_{\text{sim}} \le h_{\text{obs}})$:
+
+```{python}
+#| fig-cap: "Prior predictive distributions with the observed statistic (red line) and its p-value."
+from scspill.validation import prior_predictive, plot_prior_predictive
+
+ppc = prior_predictive(
+    Y0_pre, inputs.W_raw, inputs.w_raw, fit.alpha_hat,
+    Yc_obs=Yc_pre, X=inputs.X[:inputs.T0],   # retprice enters the simulations
+    a0=3.0, b0=1.0, rho_support=(-0.99, 0.99),
+    n_draws=1500, seed=123,
+)
+fig = plot_prior_predictive(ppc)
+```
+
+```{python}
+pd.Series(ppc.p_values).round(3)
+```
+
+The observed statistics themselves are pinned in the test suite against the
+R replication package's frozen table to three decimals — the p-values here
+reproduce the published pattern (the first principal component's share of
+variance is the one statistic in the tail, exactly as in the paper's
+appendix).
+
+## Cross-validation against the R replication package
+
+The repository's `benchmarks/` directory runs the durable comparisons:
+
+- California and Sudan posteriors against the frozen R credible intervals
+  (matching the R specification, and separately reporting the paper-correct
+  one — see the [method article](method.qmd) for why those differ);
+- the reduced Monte Carlo grid against the paper's frozen Tables 1–2 CSVs;
+- this Geweke test at a quarter-million draws.
+
+```bash
+python benchmarks/run_benchmarks.py --all --report
+```

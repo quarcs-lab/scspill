@@ -1,0 +1,154 @@
+---
+title: "The method: identification and two-step Bayesian inference"
+subtitle: "What scspill estimates, and exactly how"
+---
+
+This page states the model and the estimator implemented by scspill —
+Sakaguchi & Tagawa's *Identification and Bayesian Inference for Synthetic
+Control Methods with Spillover Effects* — and documents precisely where this
+implementation deliberately departs from the authors' R replication package.
+
+## Setup
+
+Units $i = 0, 1, \dots, N$ are observed over periods $t = 1, \dots, T$. Unit
+$0$ receives a treatment from period $T_0 + 1$ onward; units $1, \dots, N$
+are the donors. Potential outcomes are indexed by the *entire* treatment
+vector — SUTVA is not assumed — so the donors may be affected by unit $0$'s
+treatment. Two estimands follow:
+
+- the **treatment effect on the treated**,
+  $\xi_{0t} = Y_{0t}(1, 0, \dots, 0) - Y_{0t}(0, \dots, 0)$, and
+- the **spillover effect on donor** $i$,
+  $\xi_{it} = Y_{it}(1, 0, \dots, 0) - Y_{it}(0, \dots, 0)$.
+
+The synthetic-control assumption is *perfect fit with unconstrained
+weights*: there exists $\alpha \in \mathbb{R}^N$ with
+$Y_{0t}(\mathbf{0}) = \sum_{i \ge 1} \alpha_i\, Y_{it}(\mathbf{0})$ for all
+$t$. No simplex constraint — weights may be negative or exceed one.
+
+**Why classical SCM breaks.** The observed gap decomposes as
+$$
+Y_{0t} - \sum_i \alpha_i Y_{it}
+  = \xi_{0t} + \underbrace{\textstyle\sum_i \alpha_i
+    \bigl(Y_{it}(\mathbf 0) - Y_{it}(1, \mathbf 0)\bigr)}_{\text{spillover bias}},
+$$
+so whenever the donors absorb part of the treatment, the classical estimate
+mixes the effect with the contamination.
+
+## The spillover model
+
+Spillovers travel through a spatial-autoregressive (SAR) structure on the
+donor outcomes:
+$$
+\mathbf Y^c_t \;=\; \rho\,\bigl(\mathbf w\, Y_{0t} + \mathbf W\, \mathbf Y^c_t\bigr)
+  \;+\; \mathbf X_t \boldsymbol\beta \;+\; \mathbf u_t ,
+$$
+where $\mathbf w \in \mathbb R^N$ measures each donor's exposure to the
+*treated* unit (contiguity, trade, any a-priori channel), $\mathbf W \in
+\mathbb R^{N \times N}$ links donors to each other, and one scalar $\rho$
+scales the whole channel. $\mathbf X_t$ are optional covariates and the
+errors follow a latent AR(1) factor model,
+$\mathbf u_t = \boldsymbol\eta\, \boldsymbol\gamma_t + \mathbf e_t$. At
+$\rho = 0$ the model — and the estimator — collapses exactly to the Bayesian
+horseshoe synthetic control.
+
+## Identification
+
+Let $\mathbf A = \mathbf W + \mathbf w\, \boldsymbol\alpha^\top$ and require
+$\mathbf I_N - \rho \mathbf A$ to be invertible. Substituting the perfect-fit
+assumption into the SAR system yields the donors' no-treatment
+counterfactual in closed form:
+$$
+\mathbf Y^c_t(\mathbf 0)
+  = (\mathbf I_N - \rho \mathbf A)^{-1}
+    \bigl[(\mathbf I_N - \rho \mathbf W)\, \mathbf Y^c_t
+          - \rho\, \mathbf w\, Y_{0t}\bigr],
+$$
+and with it both estimands:
+$$
+\xi_{0t} = Y_{0t} - \boldsymbol\alpha^\top \mathbf Y^c_t(\mathbf 0),
+\qquad
+\boldsymbol\xi^c_t = \mathbf Y^c_t - \mathbf Y^c_t(\mathbf 0).
+$$
+Only $(\boldsymbol\alpha, \rho, \mathbf w, \mathbf W)$ and the observed
+outcomes enter — the covariate coefficients, factors, and error variances
+cancel out of the effects.
+
+## Two-step Bayesian inference
+
+The joint pre-treatment likelihood contains the product
+$\rho\, \mathbf w \boldsymbol\alpha^\top$, which is weakly identified and
+mixes badly, so the paper factorizes it and samples sequentially (a *cut*
+posterior):
+
+**Step 1 — synthetic weights.** A Bayesian regression of $Y_{0t}$ on
+$\mathbf Y^c_t$ over the pre-period with the horseshoe prior
+$$
+\alpha_i \mid \lambda_i \sim \mathcal N(0, \lambda_i^2), \quad
+\lambda_i \mid \tau \sim \mathcal C^+(0, \tau), \quad
+\tau \sim \mathcal C^+(0, \sigma_1), \quad
+\sigma_1 \sim \mathcal C^+(0, 10),
+$$
+sampled with the Makalic–Schmidt (2015) inverse-gamma auxiliary
+representation, so every full conditional is closed form. The outcomes are
+scaled by their standard deviations only (no centering), and the draws are
+back-transformed.
+
+**Step 2 — the SAR block.** With $\boldsymbol\alpha$ fixed at its posterior
+mean $\hat{\boldsymbol\alpha}$, a Gibbs sampler draws the latent AR(1)
+factors (forward-filter backward-sample), the covariate coefficients
+$\boldsymbol\beta$ (horseshoe), the error variance $\sigma^2$
+(inverse-gamma), and $\rho$ by random-walk Metropolis. The $\rho$ step's
+Jacobian $\log\lvert \mathbf I - \rho \mathbf A\rvert$ is evaluated in
+$O(N)$ per proposal from the pre-computed complex eigenvalues of
+$\mathbf A$, and $\rho$ lives on the spectral support
+$|\rho| < 0.95 / \max(1, \max_i |\lambda_i(\mathbf W)|)$.
+
+**Effects.** Each retained draw pair $(\boldsymbol\alpha^{(m)}, \rho^{(m)})$
+is plugged into the identification formulas; posterior means and equal-tailed
+quantiles give the point estimates and credible bands. The per-draw inverse
+uses a one-time eigendecomposition of $\mathbf W$ plus the Sherman–Morrison
+identity for the rank-one term $\rho\, \mathbf w \hat{\boldsymbol\alpha}^\top$,
+so the whole posterior sweep costs $O(M N^2 T)$.
+
+## Where scspill departs from the R replication package
+
+scspill defaults to the *paper-correct* behavior and documents every
+difference; several came out of validating the port. Each has either an
+escape hatch or a benchmark demonstrating the consequence.
+
+| # | R replication package | scspill default | Escape hatch |
+|---|---|---|---|
+| 1 | The covariate array reaches the C++ sampler through mismatched memory layouts, so $\mathbf X_t$ entered the published fits as scrambled noise | covariates carried as a proper $(T, N, K)$ array end-to-end | drop `covariates` to reproduce the R fits' *effective* specification |
+| 2 | $\boldsymbol\beta$ sampled under a flat-plus-ridge conditional despite the paper's horseshoe | the paper's horseshoe on $\boldsymbol\beta$ | `beta_prior="ridge"` |
+| 3 | ATT credible intervals vary only $\rho$, holding $\boldsymbol\alpha$ at its posterior mean | paired $(\boldsymbol\alpha^{(m)}, \rho^{(m)})$ draws (the paper's stated procedure) | `propagate_alpha=False` |
+| 4 | fixed Metropolis step for $\rho$ (empirical ESS as low as 3–44) | Robbins–Monro adaptation during burn-in toward 44% acceptance, then frozen | `adapt_rho=False` |
+| 5 | the factor block's $\omega_k$ conditional treats $\omega_k$ as a variance multiplier while its $\boldsymbol\eta$ / $\sigma_\eta^2$ conditionals treat it as a precision — mutually inconsistent conditionals | the paper's parametrization $\eta_{ik} \sim \mathcal N(0, \sigma^2_\eta \omega_k)$ throughout | — (the R combination is not a valid Gibbs sampler for any posterior) |
+| 6 | the FFBS initializes $\gamma_1$ from the stationary AR(1) variance while the $\phi_\gamma$ / $\sigma^2_\gamma$ conditionals assume $\gamma_1 \sim \mathcal N(0, \sigma^2_\gamma)$ | the coherent $\gamma_0 = 0$ initialization | — |
+
+Items 5–6 were caught by the [Geweke joint distribution
+test](validation.qmd) — with the fixes, every sampler block passes it.
+Item 1 has a striking consequence: fitted *without* covariates, scspill
+reproduces the R California posterior almost exactly
+($\hat\rho = 0.187$ vs. R's $0.185$); with the retail-price covariate
+entering correctly, $\hat\rho$ moves to roughly $0.35$. The benchmark suite
+(`benchmarks/REPORT.md`) gates both claims.
+
+## References
+
+- Sakaguchi, S., & Tagawa, H. *Identification and Bayesian Inference for
+  Synthetic Control Methods with Spillover Effects.* The Econometrics
+  Journal.
+- Abadie, A., Diamond, A., & Hainmueller, J. (2010). Synthetic control
+  methods for comparative case studies. *JASA* 105(490).
+- Carvalho, C., Polson, N., & Scott, J. (2010). The horseshoe estimator for
+  sparse signals. *Biometrika* 97(2).
+- Makalic, E., & Schmidt, D. (2015). A simple sampler for the horseshoe
+  estimator. *IEEE Signal Processing Letters* 23(1).
+- Kim, S., Lee, C., & Gupta, S. (2020). Bayesian synthetic control methods.
+  *Journal of Marketing Research* 57(5).
+- Pang, X., Liu, L., & Xu, Y. (2022). A Bayesian alternative to synthetic
+  control for comparative case studies. *Political Analysis* 30(2).
+- Geweke, J. (2004). Getting it right: joint distribution tests of posterior
+  simulators. *JASA* 99(467).
+- LeSage, J., & Pace, R. K. (2009). *Introduction to Spatial Econometrics.*

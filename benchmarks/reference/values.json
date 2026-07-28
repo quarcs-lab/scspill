@@ -1,0 +1,50 @@
+{
+  "provenance": {
+    "source": "scspill R replication package (Sakaguchi & Tagawa, 'Identification and Bayesian Inference for Synthetic Control Methods with Spillover Effects', The Econometrics Journal; Zenodo DOI 10.5281/zenodo.19066186)",
+    "frozen_tables": "data/paper_tables/*.tex and tables/mc_result/*.csv of the replication package",
+    "note": "R production runs: California m=100k/burn=50k (seed 20251022, step_rho=0.01); Sudan m=1e6/burn=5e5 (step_rho=0.02); Geweke M1=M2=2e6."
+  },
+  "california": {
+    "rho_mean": 0.1847,
+    "rho_sd": 0.042,
+    "rho_ci": [0.0957, 0.2677],
+    "rho_ess_full": 43.98,
+    "alpha_nevada_mean": 0.1997,
+    "alpha_nevada_ci": [0.1204, 0.2681],
+    "sigma2_mean": 76.1,
+    "top_spillover_unit": "Nevada",
+    "ppa_observed": {
+      "yc_mean": 131.5,
+      "log_yc_var": 6.984,
+      "spatial_quadratic": 17844.72,
+      "corr_y0_wyc": 0.945,
+      "ac1": 0.894,
+      "ac2": 0.81,
+      "pve_pc1": 0.625,
+      "avg_skewness": -0.396,
+      "avg_kurtosis": -0.943
+    },
+    "ppa_pvalues": {
+      "yc_mean": 0.906,
+      "log_yc_var": 0.681,
+      "spatial_quadratic": 0.802,
+      "corr_y0_wyc": 0.631,
+      "ac1": 0.976,
+      "ac2": 0.98,
+      "pve_pc1": 0.049,
+      "avg_skewness": 0.48,
+      "avg_kurtosis": 0.715
+    }
+  },
+  "sudan": {
+    "rho_mean": 0.4274,
+    "rho_sd": 0.0642,
+    "rho_ci": [0.2941, 0.5498],
+    "rho_ess_full": 387.8,
+    "top_spillover_units": ["Egypt, Arab Rep.", "Kenya"]
+  },
+  "geweke": {
+    "max_abs_z_full": 1.579,
+    "config": "T0=15, N=8, K=2, p=1, chain W, w=e1, a0=b0=1, step_rho=0.05, M1=M2=2e6"
+  }
+}

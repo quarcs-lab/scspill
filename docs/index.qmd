@@ -1,0 +1,134 @@
+---
+---
+
+![scspill — Bayesian synthetic control with spillovers, in Python](images/hero.png){fig-align="center" fig-alt="scspill — observed vs synthetic California with spillover effects on donors"}
+
+::: {.text-center}
+**Synthetic control when the treatment leaks: estimate the policy effect *and* the spillover received by every donor.**
+:::
+
+**scspill** is a Python implementation of the Bayesian spatial-spillover
+synthetic control of Sakaguchi & Tagawa (*Identification and Bayesian
+Inference for Synthetic Control Methods with Spillover Effects*, The
+Econometrics Journal). Classical synthetic control assumes the donors are
+untouched by the treatment; when a policy spills across borders (or trade
+links), that assumption fails and the estimate is biased. scspill models the
+leakage with a spatial-autoregressive structure and recovers both the
+treatment effect on the treated unit and the spillover effect on each donor
+— from user-supplied spatial weights, a horseshoe-regularized donor fit, and
+one spillover intensity $\rho$.
+
+```{=html}
+<div class="hero-cta">
+  <a class="xpd-btn xpd-btn--app" href="get-started.qmd">Get started &rarr;</a>
+  <a class="xpd-btn xpd-btn--ghost" href="articles/method.qmd">Read the method</a>
+  <a class="xpd-btn xpd-btn--ghost" href="https://github.com/quarcs-lab/scspill" target="_blank" rel="noopener">&#11088; Star on GitHub</a>
+</div>
+```
+
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-4 .module-card}
+### [🎯 Estimate](get-started.qmd)
+One config, one fit: `SCSPILL(config).fit()` runs the **two-step Bayesian
+sampler** and returns the ATT with credible intervals, the counterfactual
+path, the posterior of $\rho$, and a **time-by-donor spillover panel**.
+
+```{=html}
+<div class="module-card__links">
+  <a href="https://colab.research.google.com/github/quarcs-lab/scspill/blob/main/notebooks/california.ipynb" target="_blank" rel="noopener">▶ Open in Colab</a>
+</div>
+```
+:::
+
+::: {.g-col-12 .g-col-md-4 .module-card}
+### [🔬 Validate](articles/validation.qmd)
+The paper's appendix machinery, built in: the **Geweke joint distribution
+test** of the sampler, **prior sensitivity** sweeps, and **prior predictive
+checks** against nine statistics of the donor panel.
+:::
+
+::: {.g-col-12 .g-col-md-4 .module-card}
+### [🎲 Simulate](articles/simulation-study.qmd)
+The paper's **Monte Carlo engine**: plant $\rho$ and the treatment effect on
+a lattice, watch classical SCM go wrong under spillovers, and score bias,
+RMSE, and coverage across estimators.
+:::
+
+:::
+
+## What's inside
+
+The treated unit is matched by unconstrained, horseshoe-shrunk synthetic
+weights $\alpha$ (donors can be excluded, weighted negatively, or extrapolated
+— no simplex constraint). Spillovers travel through weights you specify:
+`spatial_w` links the treated unit to each donor, `spatial_W` links donors to
+each other, and a single scalar $\rho$ — estimated by random-walk Metropolis
+inside a Gibbs sampler — scales the whole channel. At $\rho = 0$ the method
+collapses exactly to the Bayesian horseshoe synthetic control.
+
+| You provide | scspill returns |
+|---|---|
+| a long panel `df` (one row per unit-period) | `att`, `att_ci` — the treatment effect with credible interval |
+| a 0/1 treatment column | the counterfactual path with a pointwise credible band |
+| `spatial_w`, `spatial_W` — spatial weights by donor label | the posterior of $\rho$ (draws, interval, ESS, acceptance) |
+| optional covariate columns | a $(T \times N)$ spillover panel with credible bands per donor |
+|  | MCMC diagnostics and R-style plot panels |
+
+## Bundled case studies
+
+- **California Proposition 99** — 39 states, 1970–2000, per-capita cigarette
+  sales, rook-contiguity weights (`scspill.data.load_california()`): the
+  paper's tobacco-tax application where the spillover lands on Nevada.
+- **The 2011 Sudan secession** — 34 African countries, 2000–2015, GDP per
+  capita, bilateral-trade weights (`scspill.data.load_sudan()`): spillovers
+  travel the trade network to Egypt and Kenya.
+
+## Installation
+
+```bash
+pip install scspill            # NumPy/SciPy backend
+pip install "scspill[numba]"   # + JIT-compiled samplers (~10x faster)
+```
+
+## At a glance
+
+```python
+from scspill import SCSPILL
+from scspill.data import load_california
+
+panel = load_california()
+result = SCSPILL({**panel.config_kwargs(), "m_iter": 20_000, "burn": 10_000,
+                  "seed": 42}).fit()
+
+result.att, result.att_ci          # treatment effect on California
+result.rho_hat, result.rho_ci      # spillover intensity
+result.spillover_panel["Nevada"]   # the effect received by Nevada
+result.plot(kind="panel")          # counterfactual | effect | top spillovers
+```
+
+## Validated, not just implemented
+
+Every release is cross-validated against the authors' R replication package
+(see the [validation article](articles/validation.qmd) and
+`benchmarks/REPORT.md` in the repository): the California and Sudan
+posteriors are matched against the frozen R credible intervals, the Monte
+Carlo grid against the paper's Tables 1–2, and the sampler itself passes the
+Geweke joint distribution test — which also caught, and led us to fix, two
+internal inconsistencies in the reference implementation's latent-factor
+block.
+
+## Built on
+
+[numpy](https://numpy.org) · [scipy](https://scipy.org) ·
+[pandas](https://pandas.pydata.org) · [pydantic](https://docs.pydantic.dev) ·
+[matplotlib](https://matplotlib.org) · optional
+[numba](https://numba.pydata.org) — and designed to sit beside
+[mlsynth](https://github.com/jgreathouse9/mlsynth), whose estimator
+architecture it shares.
+
+## Acknowledgement
+
+The method and the reference implementation are by Shosei Sakaguchi and
+Hayato Tagawa; this package is an independent Python port with
+paper-correct defaults, developed at the [QuaRCS lab](https://quarcs-lab.org).

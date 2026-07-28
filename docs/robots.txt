@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Machine-readable entry points for LLMs and agents
+# https://quarcs-lab.github.io/scspill/llms.txt
+# https://quarcs-lab.github.io/scspill/llms-full.txt
+
+Sitemap: https://quarcs-lab.github.io/scspill/sitemap.xml

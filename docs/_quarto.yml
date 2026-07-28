@@ -1,0 +1,165 @@
+project:
+  type: website
+  output-dir: _site
+  resources:
+    - robots.txt
+
+website:
+  title: "scspill"
+  description: "Bayesian spatial-spillover synthetic control (Sakaguchi & Tagawa) in Python."
+  favicon: images/favicon.png
+  repo-url: https://github.com/quarcs-lab/scspill
+  repo-actions: [issue, edit]
+  navbar:
+    background: primary
+    left:
+      - text: "Home"
+        file: index.qmd
+      - text: "Get started"
+        file: get-started.qmd
+      - text: "Sudan case study"
+        file: sudan.qmd
+      - text: "For AI / LLMs"
+        file: use-with-llms.qmd
+      - text: "Articles"
+        menu:
+          - text: "The method: identification and two-step Bayesian inference"
+            file: articles/method.qmd
+          - text: "Validating the sampler (Geweke, prior checks)"
+            file: articles/validation.qmd
+          - text: "The Monte Carlo simulation study"
+            file: articles/simulation-study.qmd
+          - text: "The bundled datasets"
+            file: articles/datasets.qmd
+      - text: "Reference"
+        file: reference/index.qmd
+      - text: "Changelog"
+        file: changelog.qmd
+    right:
+      - icon: github
+        href: https://github.com/quarcs-lab/scspill
+  sidebar:
+    style: docked
+    contents:
+      - reference/_sidebar.yml
+
+# The docs execute against the project venv via a registered kernelspec (a
+# user-level `python3` kernel can otherwise shadow it). Register with:
+#   uv run python -m ipykernel install --user --name scspill
+jupyter: scspill
+
+execute:
+  freeze: auto
+
+format:
+  html:
+    theme: [cosmo, custom.scss]
+    toc: true
+    code-copy: true
+    code-overflow: wrap
+    include-in-header:
+      # Fully-qualified URLs: Quarto rewrites root-relative hrefs.
+      text: |
+        <link rel="alternate" type="text/markdown" href="https://quarcs-lab.github.io/scspill/llms.txt" title="llms.txt for LLMs">
+        <link rel="alternate" type="text/plain" href="https://quarcs-lab.github.io/scspill/llms-full.txt" title="llms-full.txt for LLMs">
+
+metadata-files:
+  - reference/_sidebar.yml
+
+quartodoc:
+  package: scspill
+  parser: numpy
+  title: API Reference
+  sidebar: reference/_sidebar.yml
+  dir: reference
+  render_interlinks: true
+  sections:
+    - title: Estimator
+      desc: >-
+        The Bayesian spatial-spillover synthetic control — configure once, fit
+        once: `SCSPILL(config).fit()` runs the two-step sampler (horseshoe
+        synthetic weights, then the SAR spillover block) and returns a
+        `SCSPILLResults` with the treatment effect, its credible interval, and
+        the spillover received by every donor.
+      package: scspill.estimators.scspill
+      contents:
+        - SCSPILL
+    - title: Configuration
+      desc: >-
+        The pydantic input contract — the long panel and its column names, the
+        spatial weights `spatial_w` / `spatial_W` (label-aligned), covariates,
+        the MCMC budget, priors, and the paper-correct switches
+        (`beta_prior`, `propagate_alpha`, `adapt_rho`) with their R-compatible
+        settings.
+      package: scspill.utils.scspill_helpers.config
+      contents:
+        - SCSPILLConfig
+    - title: Results
+      desc: >-
+        The standardized posterior report — flat accessors (`att`, `att_ci`,
+        `counterfactual`, `gap`, `donor_weights`), the posterior blocks with
+        their full draw arrays, the time-by-donor spillover panel with credible
+        bands, a `diagnostics()` summary table, and `plot()` panels.
+      package: scspill.utils.scspill_helpers.structures
+      contents:
+        - SCSPILLResults
+        - SCSPILLInputs
+        - AlphaPosterior
+        - SARPosterior
+        - SCSPILLEffects
+    - title: Validation & prior checks
+      desc: >-
+        The paper's appendix machinery as user-facing functions — the Geweke
+        (2004) joint distribution test of the Step-2 sampler (simplified and
+        production kernels), prior-sensitivity re-runs across hyperparameter
+        grids, and prior predictive checks against nine summary statistics of
+        the pre-treatment donor panel.
+      package: scspill.validation
+      contents:
+        - geweke_test
+        - prior_sensitivity
+        - prior_predictive
+        - run_posterior_mcmc
+        - ppc_stats
+        - plot_geweke
+        - plot_prior_predictive
+    - title: Simulation
+      desc: >-
+        The paper's Monte Carlo engine — simulate spillover panels from a known
+        SAR data-generating process on a rook lattice, fit the classical SCM,
+        the Bayesian horseshoe SCM, and SCSPILL on each replication, and score
+        bias, RMSE, and coverage (the Tables 1–2 design).
+      package: scspill.simulate
+      contents:
+        - scspill_sim_dgp
+        - run_one_sim
+        - run_many_sim
+        - summarize_many
+        - mc_grid
+        - load_r_mc_reference
+        - rook_W
+        - make_w
+    - title: Diagnostics
+      desc: >-
+        Convergence diagnostics for the posterior chains — effective sample
+        size, split-chain R-hat, Monte Carlo standard errors, Geweke z-scores,
+        and the posterior summary table behind `SCSPILLResults.diagnostics()`.
+      package: scspill.utils.scspill_helpers.diagnostics
+      contents:
+        - ess_acf
+        - split_rhat
+        - mcse_from_ess
+        - geweke_z
+        - mcmc_summary
+    - title: Datasets
+      desc: >-
+        The two bundled case studies from the paper, shipped inside the wheel —
+        the California Proposition 99 tobacco panel (39 states, 1970–2000, rook
+        contiguity weights) and the 2011 Sudan secession panel (34 African
+        countries, 2000–2015, bilateral-trade weights). Each loader returns a
+        `SpillPanel` whose `config_kwargs()` feeds `SCSPILLConfig` directly.
+      package: scspill.data
+      contents:
+        - load_california
+        - load_sudan
+        - SpillPanel

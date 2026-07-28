@@ -1,0 +1,77 @@
+---
+title: "scspill for AI agents and LLMs"
+subtitle: "The machine-readable entry points and the minimal working contract"
+---
+
+This page is the stable entry point for AI assistants working with scspill.
+
+## Machine-readable indexes
+
+- <https://quarcs-lab.github.io/scspill/llms.txt> — curated overview:
+  what the package does, the input contract, and links to every docs page
+  (llmstxt.org convention).
+- <https://quarcs-lab.github.io/scspill/llms-full.txt> — the full docs
+  corpus: every page's source plus the signature and docstring of every
+  public function.
+
+Both are also advertised via `<link rel="alternate">` tags on every page and
+in `robots.txt`.
+
+## The contract in one block
+
+```python
+from scspill import SCSPILL
+from scspill.data import load_california
+
+panel = load_california()          # or build your own inputs (below)
+result = SCSPILL(
+    {
+        "df": panel.df,            # long panel: one row per (unit, period)
+        "outcome": "cigsale",      # column names, not data
+        "treat": "treated",        # 0/1; 1 = treated unit in post periods
+        "unitid": "state",
+        "time": "year",
+        "spatial_w": panel.spatial_w,   # Series/dict by donor label, or array
+        "spatial_W": panel.spatial_W,   # labelled (N, N) DataFrame, or array
+        "covariates": ["retprice"],     # optional columns of df
+        "m_iter": 20_000,
+        "burn": 10_000,
+        "seed": 42,
+        "display_graphs": False,
+    }
+).fit()
+
+result.att              # float: average treatment effect on the treated
+result.att_ci           # (lo, hi): 95% credible interval
+result.rho_hat          # float: spillover intensity posterior mean
+result.rho_ci           # (lo, hi)
+result.counterfactual   # (T,) array: the treated unit's no-treatment path
+result.spillover_panel  # (T, N) DataFrame: effect received by each donor
+result.diagnostics()    # DataFrame: mean/sd/quantiles/ESS/R-hat per chain
+result.plot(kind="panel")   # counterfactual | effect | top spillovers
+```
+
+## Rules of thumb for agents
+
+- The treated unit and the treatment date are inferred from the `treat`
+  column — there is no `treated_unit` argument.
+- Spatial weights align **by label**; pass pandas objects whenever you have
+  labels. Raw/unnormalized weights are fine (normalization is internal).
+- `rho` is the weakly identified parameter: for real analyses use tens of
+  thousands of iterations and check `result.rho_ess` and
+  `result.diagnostics()`.
+- Errors are typed: `ScspillConfigError` (bad configuration),
+  `ScspillDataError` (bad panel/weights), `ScspillEstimationError`,
+  `ScspillPlottingError` — all subclass `ScspillError`.
+- Sampler validation lives in `scspill.validation` (`geweke_test`,
+  `prior_sensitivity`, `prior_predictive`); Monte Carlo tooling in
+  `scspill.simulate`; the two case studies in `scspill.data`.
+- The estimator's architecture mirrors
+  [mlsynth](https://github.com/jgreathouse9/mlsynth) (pydantic config in,
+  standardized results object out), so mlsynth patterns transfer.
+
+## Install
+
+```bash
+pip install scspill              # or: pip install "scspill[numba]"
+```

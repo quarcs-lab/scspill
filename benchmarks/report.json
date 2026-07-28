@@ -1,0 +1,298 @@
+[
+  {
+    "case": "california_sar",
+    "ok": true,
+    "elapsed_s": 34.1,
+    "rows": [
+      {
+        "metric": "rho_hat_r_spec",
+        "got": 0.18704851036116682,
+        "lo": 0.0957,
+        "hi": 0.2677,
+        "ok": true
+      },
+      {
+        "metric": "att",
+        "got": -17.052910637947004,
+        "lo": -25.0,
+        "hi": -10.0,
+        "ok": true
+      },
+      {
+        "metric": "nevada_is_top_spillover",
+        "got": 1,
+        "lo": 1,
+        "hi": 1,
+        "ok": true
+      },
+      {
+        "metric": "nevada_dominance_ratio",
+        "got": 9.955428623088999,
+        "lo": 3.0,
+        "hi": Infinity,
+        "ok": true
+      },
+      {
+        "metric": "alpha_nevada",
+        "got": 0.20030161783867015,
+        "lo": 0.1204,
+        "hi": 0.2681,
+        "ok": true
+      },
+      {
+        "metric": "acc_rho",
+        "got": 0.43444,
+        "lo": 0.2,
+        "hi": 0.7,
+        "ok": true
+      }
+    ],
+    "extra": {
+      "rho_ci_r_spec": [
+        0.10364457946585086,
+        0.26657461273676425
+      ],
+      "rho_hat_paper_correct": 0.3506605643501407,
+      "rho_ci_paper_correct": [
+        0.27581067488016,
+        0.44889010150341846
+      ],
+      "rho_ess": 10.792082303468451,
+      "att_scm": -15.762839322881167,
+      "top5_spillover": "Nevada, Idaho, Utah, Wyoming, Montana"
+    },
+    "error": null
+  },
+  {
+    "case": "sudan_sar",
+    "ok": true,
+    "elapsed_s": 44.4,
+    "rows": [
+      {
+        "metric": "rho_hat_r_spec",
+        "got": 0.3966595186304801,
+        "lo": 0.2941,
+        "hi": 0.5498,
+        "ok": true
+      },
+      {
+        "metric": "att",
+        "got": -30.698777380075693,
+        "lo": -1000.0,
+        "hi": -10.0,
+        "ok": true
+      },
+      {
+        "metric": "egypt_kenya_top2",
+        "got": 1,
+        "lo": 1,
+        "hi": 1,
+        "ok": true
+      },
+      {
+        "metric": "acc_rho",
+        "got": 0.4541,
+        "lo": 0.2,
+        "hi": 0.7,
+        "ok": true
+      }
+    ],
+    "extra": {
+      "rho_ci_r_spec": [
+        0.2462652185109291,
+        0.5072824482673033
+      ],
+      "rho_hat_paper_correct": 0.40279352259026135,
+      "rho_ci_paper_correct": [
+        0.2673587275844408,
+        0.5571621874447807
+      ],
+      "rho_ess": 32.247175860297624,
+      "att_percent_of_cf": -2.233763702423344,
+      "top5_spillover": "Egypt, Arab Rep., Kenya, Uganda, Algeria, Tunisia"
+    },
+    "error": null
+  },
+  {
+    "case": "geweke_full",
+    "ok": true,
+    "elapsed_s": 259.8,
+    "rows": [
+      {
+        "metric": "max_abs_z",
+        "got": 2.5012347843202,
+        "lo": 0.0,
+        "hi": 3.5,
+        "ok": true
+      },
+      {
+        "metric": "n_flagged",
+        "got": 0,
+        "lo": 0,
+        "hi": 1,
+        "ok": true
+      }
+    ],
+    "extra": {
+      "passed": true,
+      "z_by_stat": {
+        "rho": 0.17,
+        "log_sigma2": 0.65,
+        "yc_mean": 2.4,
+        "log_yc_var": -2.08,
+        "spatial_quadratic": 1.23,
+        "corr_y0_wyc": -2.37,
+        "beta_mean": -2.5,
+        "Eta_mean": -0.65,
+        "Gamma_mean": -0.28
+      }
+    },
+    "error": null
+  },
+  {
+    "case": "mc_grid_vs_r",
+    "ok": true,
+    "elapsed_s": 60.0,
+    "rows": [
+      {
+        "metric": "scspill_abs_bias_max",
+        "got": 0.00037649152565090443,
+        "lo": 0.0,
+        "hi": 0.02,
+        "ok": true
+      },
+      {
+        "metric": "scspill_cover_min",
+        "got": 0.9420000000000001,
+        "lo": 0.88,
+        "hi": 1.0,
+        "ok": true
+      },
+      {
+        "metric": "scspill_cover_max",
+        "got": 0.966,
+        "lo": 0.88,
+        "hi": 0.995,
+        "ok": true
+      },
+      {
+        "metric": "rmse_ordering_holds",
+        "got": 1,
+        "lo": 1,
+        "hi": 1,
+        "ok": true
+      },
+      {
+        "metric": "rmse_ratio_vs_r_max",
+        "got": 0.4328841666260339,
+        "lo": 0.0,
+        "hi": 2.0,
+        "ok": true
+      }
+    ],
+    "extra": {
+      "scspill_rmse_by_rho": {
+        "-0.3": 0.0075,
+        "0.0": 0.0111,
+        "0.3": 0.0149
+      },
+      "frozen_rmse_by_rho": {
+        "-0.3": 0.0173,
+        "0.0": 0.0257,
+        "0.3": 0.0398
+      }
+    },
+    "error": null
+  },
+  {
+    "case": "prior_checks_ca",
+    "ok": true,
+    "elapsed_s": 28.8,
+    "rows": [
+      {
+        "metric": "pdiff_yc_mean",
+        "got": 0.007699999999999929,
+        "lo": -0.06,
+        "hi": 0.06,
+        "ok": true
+      },
+      {
+        "metric": "pdiff_log_yc_var",
+        "got": 0.01849999999999996,
+        "lo": -0.06,
+        "hi": 0.06,
+        "ok": true
+      },
+      {
+        "metric": "pdiff_spatial_quadratic",
+        "got": 0.008199999999999985,
+        "lo": -0.06,
+        "hi": 0.06,
+        "ok": true
+      },
+      {
+        "metric": "pdiff_corr_y0_wyc",
+        "got": -0.01749999999999996,
+        "lo": -0.06,
+        "hi": 0.06,
+        "ok": true
+      },
+      {
+        "metric": "pdiff_ac1",
+        "got": 0.016900000000000026,
+        "lo": -0.06,
+        "hi": 0.06,
+        "ok": true
+      },
+      {
+        "metric": "pdiff_ac2",
+        "got": 0.018500000000000072,
+        "lo": -0.06,
+        "hi": 0.06,
+        "ok": true
+      },
+      {
+        "metric": "pdiff_pve_pc1",
+        "got": -0.013900000000000003,
+        "lo": -0.06,
+        "hi": 0.06,
+        "ok": true
+      },
+      {
+        "metric": "pdiff_avg_skewness",
+        "got": 0.0039000000000000146,
+        "lo": -0.06,
+        "hi": 0.06,
+        "ok": true
+      },
+      {
+        "metric": "pdiff_avg_kurtosis",
+        "got": 0.01770000000000005,
+        "lo": -0.06,
+        "hi": 0.06,
+        "ok": true
+      },
+      {
+        "metric": "observed_max_abs_diff",
+        "got": 0.00045896176408943834,
+        "lo": 0.0,
+        "hi": 0.005,
+        "ok": true
+      }
+    ],
+    "extra": {
+      "p_values": {
+        "yc_mean": 0.914,
+        "log_yc_var": 0.7,
+        "spatial_quadratic": 0.81,
+        "corr_y0_wyc": 0.614,
+        "ac1": 0.993,
+        "ac2": 0.999,
+        "pve_pc1": 0.035,
+        "avg_skewness": 0.484,
+        "avg_kurtosis": 0.733
+      }
+    },
+    "error": null
+  }
+]

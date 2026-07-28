@@ -1,0 +1,71 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: "1.8.27"
+      - run: uv sync --locked --all-extras --group dev --group docs
+      - run: uv run --no-sync quartodoc build --config docs/_quarto.yml
+      - run: uv run --no-sync python -m ipykernel install --user --name scspill
+      # `freeze: auto` + the committed docs/_freeze cache means unchanged
+      # pages are not re-executed here (no MCMC on the runner).
+      - run: uv run --no-sync quarto render docs
+      - run: uv run --no-sync python tools/build_llms_txt.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_site
+
+  llms-fresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --locked --all-extras --group docs
+      - run: uv run --no-sync python tools/build_llms_txt.py --canonical-only
+      - run: git diff --exit-code -- docs/llms.txt
+
+  notebooks-fresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: "1.8.27"
+      - run: uv sync --locked --all-extras --group docs
+      - run: uv run --no-sync python tools/build_colab_notebooks.py
+      - run: git diff --exit-code -I '_Notebook version. built .*' -- notebooks/
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
