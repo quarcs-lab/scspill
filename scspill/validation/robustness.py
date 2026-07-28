@@ -38,7 +38,8 @@ def _skewness_type3(x: np.ndarray) -> float:
     x = np.asarray(x, dtype=float)
     x = x[np.isfinite(x)]
     n = x.size
-    if n < 3:
+    # e1071's type-3 estimator has no minimum-n gate beyond a defined m2.
+    if n < 2:
         return float("nan")
     xc = x - x.mean()
     m2 = float(np.mean(xc**2))
@@ -54,7 +55,8 @@ def _kurtosis_type3(x: np.ndarray) -> float:
     x = np.asarray(x, dtype=float)
     x = x[np.isfinite(x)]
     n = x.size
-    if n < 4:
+    # e1071's type-3 estimator has no minimum-n gate beyond a defined m2.
+    if n < 2:
         return float("nan")
     xc = x - x.mean()
     m2 = float(np.mean(xc**2))
@@ -107,11 +109,9 @@ def ppc_stats(Yc: np.ndarray, Y0_pre: np.ndarray, Wn: np.ndarray, wn: np.ndarray
     den = np.sum(Ydc * Ydc, axis=1)
     with np.errstate(divide="ignore", invalid="ignore"):
         ac1 = float(np.nanmean(np.sum(Ydc[:, 1:] * Ydc[:, :-1], axis=1) / den))
-        ac2 = (
-            float(np.nanmean(np.sum(Ydc[:, 2:] * Ydc[:, :-2], axis=1) / den))
-            if T0 > 2
-            else float("nan")
-        )
+        # At T0 = 2 the lag-2 slices are empty and the sums are 0, giving
+        # ac2 = 0 exactly as the R reference's rowSums do.
+        ac2 = float(np.nanmean(np.sum(Ydc[:, 2:] * Ydc[:, :-2], axis=1) / den))
 
     pve_pc1 = float("nan")
     if N > 1 and T0 > 1:

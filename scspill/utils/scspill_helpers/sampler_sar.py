@@ -371,7 +371,8 @@ def draw_prior_state(data: SARData, rng: np.random.Generator) -> SARState:
         state.phi_g = float(rng.uniform(-1.0, 1.0))
         state.nu_s2_g = _clip(_ig(rng, 0.5, 1.0 / 100.0))
         state.s2_g = _clip(_ig(rng, 0.5, 1.0 / state.nu_s2_g))
-        state.nu_omega = np.array([_clip(_ig(rng, 0.5, 1.0)) for _ in range(p)])
+        # omega_k ~ C+(0, 10) via the inverse-gamma mixture (the paper's prior).
+        state.nu_omega = np.array([_clip(_ig(rng, 0.5, 1.0 / 100.0)) for _ in range(p)])
         state.omega = np.array([_clip(_ig(rng, 0.5, 1.0 / state.nu_omega[k])) for k in range(p)])
         state.nu_s2_eta = _clip(_ig(rng, 0.5, 1.0 / 100.0))
         state.s2_eta = _clip(_ig(rng, 0.5, 1.0 / state.nu_s2_eta))
@@ -511,7 +512,8 @@ def one_sweep(state: SARState, data: SARData, rng: np.random.Generator) -> SARSt
             for i in range(N):
                 tmp += 0.5 * Eta[i, k] * Eta[i, k] / _clip(state.s2_eta)
             state.omega[k] = _clip(_ig(rng, 0.5 * (N + 1.0), 1.0 / _clip(state.nu_omega[k]) + tmp))
-            state.nu_omega[k] = _clip(_ig(rng, 1.0, 1.0 + 1.0 / _clip(state.omega[k])))
+            # 1/100 encodes the paper's omega_k ~ C+(0, 10); see _kernels.
+            state.nu_omega[k] = _clip(_ig(rng, 1.0, 1.0 / 100.0 + 1.0 / _clip(state.omega[k])))
 
     EG = (Eta @ Gamma).T.copy() if p > 0 else np.zeros((T0, N))
 

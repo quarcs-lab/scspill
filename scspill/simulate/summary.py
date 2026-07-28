@@ -126,7 +126,7 @@ def mc_grid(
         for T0 in T0s:
             for rho in rhos:
                 scen_ss = master.spawn(1)[0]
-                seeds = [int(s.generate_state(1)[0]) for s in scen_ss.spawn(sims_per)]
+                seeds = list(scen_ss.spawn(sims_per))
                 dgp_args = {
                     "grid": (side, side),
                     "treated": treated,

@@ -1,7 +1,9 @@
 .PHONY: sync test test-slow lint format typecheck bench notebooks llms docs build
 
 sync:
-	uv sync --locked --all-extras --group dev --group docs
+	# numba is an opt-in extra (wheels are platform-dependent); add
+	# --all-extras yourself on platforms with numba wheels.
+	uv sync --locked --group dev --group docs
 
 test:
 	uv run pytest scspill/tests -n auto

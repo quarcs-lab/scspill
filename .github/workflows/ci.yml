@@ -44,7 +44,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked --all-extras --group dev --python ${{ matrix.python }}
-      - run: uv run --no-sync pytest scspill/tests -n auto --cov=scspill --cov-report=term
+      - run: uv run --no-sync pytest scspill/tests -n auto -m "not slow" --cov=scspill --cov-report=term
 
   test-slow:
     runs-on: ubuntu-latest

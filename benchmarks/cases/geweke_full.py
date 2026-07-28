@@ -43,5 +43,7 @@ def run() -> dict:
         "max_abs_z": float(np.abs(rep.table["z"]).max()),
         "n_flagged": int(rep.n_flagged),
         "passed": bool(rep.passed),
-        "z_by_stat": {g: round(float(z), 2) for g, z in zip(rep.table["g"], rep.table["z"], strict=True)},
+        "z_by_stat": {
+            g: round(float(z), 2) for g, z in zip(rep.table["g"], rep.table["z"], strict=True)
+        },
     }

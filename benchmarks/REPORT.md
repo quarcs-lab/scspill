@@ -5,29 +5,29 @@ R replication package (see `reference/values.json` for provenance).
 
 | Case | Status | Time |
 | --- | --- | --- |
-| california_sar | PASS | 34.1s |
-| sudan_sar | PASS | 44.4s |
-| geweke_full | PASS | 259.8s |
-| mc_grid_vs_r | PASS | 60.0s |
-| prior_checks_ca | PASS | 28.8s |
+| california_sar | PASS | 46.2s |
+| sudan_sar | PASS | 42.7s |
+| geweke_full | PASS | 229.3s |
+| mc_grid_vs_r | PASS | 55.4s |
+| prior_checks_ca | PASS | 29.5s |
 
 ## california_sar
 
 | Metric | Got | Accepted range | OK |
 | --- | --- | --- | --- |
-| rho_hat_r_spec | 0.187 | [0.0957, 0.2677] | yes |
-| att | -17.05 | [-25, -10] | yes |
+| rho_hat_r_spec | 0.1866 | [0.0957, 0.2677] | yes |
+| att | -17.03 | [-25, -10] | yes |
 | nevada_is_top_spillover | 1 | [1, 1] | yes |
-| nevada_dominance_ratio | 9.955 | [3, inf] | yes |
+| nevada_dominance_ratio | 10.1 | [3, inf] | yes |
 | alpha_nevada | 0.2003 | [0.1204, 0.2681] | yes |
-| acc_rho | 0.4344 | [0.2, 0.7] | yes |
+| acc_rho | 0.4346 | [0.2, 0.7] | yes |
 
 Additional metrics:
 
-- `rho_ci_r_spec`: (0.10364457946585086, 0.26657461273676425)
-- `rho_hat_paper_correct`: 0.3506605643501407
-- `rho_ci_paper_correct`: (0.27581067488016, 0.44889010150341846)
-- `rho_ess`: 10.792082303468451
+- `rho_ci_r_spec`: (0.10218085314640935, 0.2619063109979668)
+- `rho_hat_paper_correct`: 0.34618354508476856
+- `rho_ci_paper_correct`: (0.2758056811120312, 0.45420641636247616)
+- `rho_ess`: 13.444464412911055
 - `att_scm`: -15.762839322881167
 - `top5_spillover`: Nevada, Idaho, Utah, Wyoming, Montana
 
@@ -35,18 +35,18 @@ Additional metrics:
 
 | Metric | Got | Accepted range | OK |
 | --- | --- | --- | --- |
-| rho_hat_r_spec | 0.3967 | [0.2941, 0.5498] | yes |
-| att | -30.7 | [-1000, -10] | yes |
+| rho_hat_r_spec | 0.3946 | [0.2941, 0.5498] | yes |
+| att | -30.69 | [-1000, -10] | yes |
 | egypt_kenya_top2 | 1 | [1, 1] | yes |
-| acc_rho | 0.4541 | [0.2, 0.7] | yes |
+| acc_rho | 0.4547 | [0.2, 0.7] | yes |
 
 Additional metrics:
 
-- `rho_ci_r_spec`: (0.2462652185109291, 0.5072824482673033)
-- `rho_hat_paper_correct`: 0.40279352259026135
-- `rho_ci_paper_correct`: (0.2673587275844408, 0.5571621874447807)
-- `rho_ess`: 32.247175860297624
-- `att_percent_of_cf`: -2.233763702423344
+- `rho_ci_r_spec`: (0.24201531358561107, 0.507523609928553)
+- `rho_hat_paper_correct`: 0.4002117839213539
+- `rho_ci_paper_correct`: (0.2613004725135062, 0.5564329416933556)
+- `rho_ess`: 31.298999375371388
+- `att_percent_of_cf`: -2.233202475350229
 - `top5_spillover`: Egypt, Arab Rep., Kenya, Uganda, Algeria, Tunisia
 
 ## geweke_full
@@ -65,15 +65,15 @@ Additional metrics:
 
 | Metric | Got | Accepted range | OK |
 | --- | --- | --- | --- |
-| scspill_abs_bias_max | 0.0003765 | [0, 0.02] | yes |
-| scspill_cover_min | 0.942 | [0.88, 1] | yes |
-| scspill_cover_max | 0.966 | [0.88, 0.995] | yes |
+| scspill_abs_bias_max | 0.001213 | [0, 0.02] | yes |
+| scspill_cover_min | 0.929 | [0.88, 1] | yes |
+| scspill_cover_max | 0.9725 | [0.88, 0.995] | yes |
 | rmse_ordering_holds | 1 | [1, 1] | yes |
-| rmse_ratio_vs_r_max | 0.4329 | [0, 2] | yes |
+| rmse_ratio_vs_r_max | 0.4603 | [0, 2] | yes |
 
 Additional metrics:
 
-- `scspill_rmse_by_rho`: {-0.3: 0.0075, 0.0: 0.0111, 0.3: 0.0149}
+- `scspill_rmse_by_rho`: {-0.3: 0.0064, 0.0: 0.0118, 0.3: 0.0162}
 - `frozen_rmse_by_rho`: {-0.3: 0.0173, 0.0: 0.0257, 0.3: 0.0398}
 
 ## prior_checks_ca

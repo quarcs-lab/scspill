@@ -78,7 +78,16 @@ class SCSPILLInputs:
         assert self.time_labels.shape[0] == T, "time_labels length does not match T"
         if self.X is not None:
             assert self.X.shape[:2] == (T, N), "X shape does not match (T, N, K)"
-        for arr in (self.Y0, self.Yc, self.Wn, self.wn, self.W_raw, self.w_raw, self.X):
+        for arr in (
+            self.Y0,
+            self.Yc,
+            self.Wn,
+            self.wn,
+            self.W_raw,
+            self.w_raw,
+            self.X,
+            self.time_labels,
+        ):
             _freeze_array(arr)
 
     @property

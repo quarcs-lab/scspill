@@ -58,7 +58,7 @@ class SimRunResult:
     per_time: dict | None = None
 
 
-def _resolve_dgp(dgp: SimDGP | None, dgp_args: dict | None, seed: int | None) -> SimDGP:
+def _resolve_dgp(dgp: SimDGP | None, dgp_args: dict | None, seed) -> SimDGP:
     """Build the DGP from explicit args when one is not supplied."""
     if dgp is not None:
         return dgp
@@ -73,6 +73,9 @@ def _resolve_dgp(dgp: SimDGP | None, dgp_args: dict | None, seed: int | None) ->
         args["N"] = args["W"].shape[0]
     args.setdefault("N", np.asarray(args["W"]).shape[0])
     if "w" not in args:
+        # Default exposure: the paper's simulation design (first four donors
+        # exposed). Note the R *function* default is a single exposed donor;
+        # the R study driver overrides it to the paper's 1:4.
         args["w"] = make_w(args["N"], treated=args.pop("treated", (0, 1, 2, 3)))
     args.pop("treated", None)
     if "alpha" not in args:
@@ -93,7 +96,7 @@ def run_one_sim(
     step_rho: float = 0.02,
     a0: float = 1.0,
     b0: float = 1.0,
-    seed: int | None = None,
+    seed=None,
     keep_full: bool = False,
     backend: str = "auto",
 ) -> SimRunResult:
@@ -115,8 +118,10 @@ def run_one_sim(
         step; adaptation is off to mirror the reference study).
     a0, b0 : float, default 1.0
         Inverse-gamma prior for ``sigma^2``.
-    seed : int, optional
-        Seeds both the DGP (when generated here) and the samplers.
+    seed : int or numpy.random.SeedSequence, optional
+        Seeds the replication. The DGP (when generated here) and the
+        samplers draw from two *independent* child streams of this seed, so
+        the simulated data and the MCMC noise are never correlated.
     keep_full : bool, default False
         Keep the draw arrays and per-period paths on the result.
     backend : {"auto", "numpy", "numba"}, default "auto"
@@ -126,9 +131,11 @@ def run_one_sim(
     -------
     SimRunResult
     """
-    dgp = _resolve_dgp(dgp, dgp_args, seed)
+    ss = seed if isinstance(seed, np.random.SeedSequence) else np.random.SeedSequence(seed)
+    dgp_ss, sampler_ss = ss.spawn(2)
+    dgp = _resolve_dgp(dgp, dgp_args, dgp_ss)
     kernels = resolve_backend(backend)
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(sampler_ss)
 
     Y0_pre, Yc_pre = dgp.Y0_pre, dgp.Yc_pre
     Y0_post, Yc_post = dgp.Y0_post, dgp.Yc_post
@@ -252,7 +259,7 @@ def run_many_sim(
     n_sims: int,
     dgp_args: dict,
     *,
-    seeds: list[int] | None = None,
+    seeds: list | None = None,
     n_jobs: int | None = 1,
     keep_full: bool = False,
     **run_kwargs: Any,
@@ -265,9 +272,9 @@ def run_many_sim(
         Number of replications.
     dgp_args : dict
         Arguments for the DGP (see :func:`run_one_sim`).
-    seeds : list of int, optional
-        One seed per replication; spawned from ``numpy.random.SeedSequence``
-        when omitted.
+    seeds : list of int or of numpy.random.SeedSequence, optional
+        One seed per replication; independent ``SeedSequence`` children are
+        spawned when omitted.
     n_jobs : int, optional
         Worker processes; ``1`` runs serially, ``None`` reads the
         ``SCSPILL_NWORKERS`` environment variable (R-parity convenience).
@@ -285,8 +292,9 @@ def run_many_sim(
     if seeds is not None and len(seeds) != n_sims:
         raise ScspillConfigError(f"run_many_sim: got {len(seeds)} seeds for {n_sims} replications.")
     if seeds is None:
-        ss = np.random.SeedSequence()
-        seeds = [int(s.generate_state(1)[0]) for s in ss.spawn(n_sims)]
+        # Keep the SeedSequence children themselves: collapsing them to a
+        # single uint32 would discard the collision-free 128-bit spawn keys.
+        seeds = list(np.random.SeedSequence().spawn(n_sims))
     if n_jobs is None:
         n_jobs = int(os.environ.get("SCSPILL_NWORKERS", "1"))
 

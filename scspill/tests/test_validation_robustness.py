@@ -70,8 +70,18 @@ def test_type3_moments_hand_checked():
     g2 = m4 / m2**2 - 3.0
     assert _skewness_type3(x) == pytest.approx(g1 * ((n - 1) / n) ** 1.5)
     assert _kurtosis_type3(x) == pytest.approx((g2 + 3.0) * (1 - 1 / n) ** 2 - 3.0)
-    assert np.isnan(_skewness_type3(np.array([1.0, 2.0])))
+    # e1071 parity at tiny n: a two-point sample is symmetric (skewness 0),
+    # and only a zero-variance or single-point sample is undefined.
+    assert _skewness_type3(np.array([1.0, 2.0])) == pytest.approx(0.0)
+    assert np.isnan(_skewness_type3(np.array([1.0])))
     assert np.isnan(_kurtosis_type3(np.ones(10)))  # zero variance
+
+
+def test_ac2_matches_r_at_two_periods():
+    """R's rowSums over empty lag-2 slices give ac2 = 0 at T0 = 2."""
+    Yc = np.array([[1.0, 2.0, 4.0], [3.0, 1.0, 2.0]])
+    stats = ppc_stats(Yc, np.array([1.0, 2.0]), np.zeros((3, 3)), np.array([1.0, 0, 0]))
+    assert stats["ac2"] == pytest.approx(0.0)
 
 
 def test_ppc_stats_hand_checked():

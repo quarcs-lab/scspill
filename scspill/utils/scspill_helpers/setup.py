@@ -73,6 +73,10 @@ def normalize_w(w: np.ndarray) -> np.ndarray:
         no control).
     """
     w = np.asarray(w, dtype=float).ravel()
+    if np.any(w < 0) or not np.all(np.isfinite(w)):
+        raise ScspillDataError(
+            "spatial_w must be non-negative and finite (spatial exposure weights)."
+        )
     if not np.any(w > 0):
         raise ScspillDataError(
             "spatial_w has no positive entries (treated unit is linked to no controls)."
@@ -90,18 +94,25 @@ def _align_W(spatial_W, control_labels) -> np.ndarray:
         if spatial_W.shape[1] == N + 1 and spatial_W.index.name is None:
             first = cols[0]
             spatial_W = spatial_W.set_index(first)
+        if spatial_W.index.has_duplicates or spatial_W.columns.has_duplicates:
+            raise ScspillDataError("SCSPILL: spatial_W has duplicate row/column labels.")
         missing = [u for u in labels if u not in spatial_W.index or u not in spatial_W.columns]
         if missing:
             raise ScspillDataError(f"SCSPILL: spatial_W missing rows/cols for units {missing[:5]}.")
         W = spatial_W.loc[labels, labels].to_numpy(dtype=float)
     else:
-        W = np.asarray(spatial_W, dtype=float)
+        # Copy so freezing the inputs never write-protects the caller's array.
+        W = np.array(spatial_W, dtype=float, copy=True)
         if W.shape != (N, N):
             raise ScspillDataError(
                 f"SCSPILL: spatial_W has shape {W.shape}, expected ({N}, {N}). "
                 "Pass a labelled DataFrame to align by unit, or an N x N array "
                 "in donor-label order."
             )
+    if np.any(W < 0) or not np.all(np.isfinite(W)):
+        raise ScspillDataError(
+            "SCSPILL: spatial_W must be non-negative and finite (spatial weights)."
+        )
     return W
 
 
@@ -117,16 +128,29 @@ def _align_w(spatial_w, control_labels) -> np.ndarray:
             spatial_w = spatial_w.iloc[:, 0]
     w: np.ndarray
     if isinstance(spatial_w, pd.Series):
+        if spatial_w.index.has_duplicates:
+            raise ScspillDataError("SCSPILL: spatial_w has duplicate labels.")
         missing = [u for u in labels if u not in spatial_w.index]
         if missing:
             raise ScspillDataError(f"SCSPILL: spatial_w missing units {missing[:5]}.")
         w = spatial_w.loc[labels].to_numpy(dtype=float)
     elif isinstance(spatial_w, dict):
+        unknown = sorted(set(spatial_w) - set(labels))
+        if unknown:
+            raise ScspillDataError(
+                f"SCSPILL: spatial_w has unknown donor keys {unknown[:5]} "
+                "(typo, or a unit missing from the panel?)."
+            )
         w = np.array([float(spatial_w.get(u, 0.0)) for u in labels], dtype=float)
     else:
-        w = np.asarray(spatial_w, dtype=float).ravel()
+        # Copy so freezing the inputs never write-protects the caller's array.
+        w = np.array(spatial_w, dtype=float, copy=True).ravel()
         if w.shape[0] != N:
             raise ScspillDataError(f"SCSPILL: spatial_w has length {w.shape[0]}, expected {N}.")
+    if np.any(w < 0) or not np.all(np.isfinite(w)):
+        raise ScspillDataError(
+            "SCSPILL: spatial_w must be non-negative and finite (spatial exposure weights)."
+        )
     if not np.any(w > 0):
         raise ScspillDataError(
             "SCSPILL: spatial_w has no positive entries (treated unit is linked to no controls)."
@@ -183,6 +207,9 @@ def prepare_scspill_inputs(
             raise ScspillDataError(f"SCSPILL: required column {col!r} missing.")
     if df[outcome].isna().any():
         raise ScspillDataError("SCSPILL: outcome column contains NaN.")
+    if df[treat].isna().any():
+        # NaN != 0 evaluates True, which would silently shift the inferred T0.
+        raise ScspillDataError("SCSPILL: treatment indicator column contains NaN.")
 
     time_labels = np.array(sorted(df[time].unique()))
     T = int(time_labels.size)

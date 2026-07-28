@@ -1,6 +1,7 @@
 """Tests for panel preparation and spatial-weight alignment (setup.py)."""
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from scspill.exceptions import ScspillDataError
@@ -202,3 +203,56 @@ def test_inputs_frozen_and_arrays_readonly(panel):
         inputs.T0 = 5
     assert not inputs.Y0.flags.writeable
     assert not inputs.Wn.flags.writeable
+    assert not inputs.time_labels.flags.writeable
+
+
+# ---------------------------------------------------------------------------
+# REVIEW REGRESSIONS (defects found by the adversarial review)
+# ---------------------------------------------------------------------------
+
+
+def test_nan_in_treat_column_rejected(panel):
+    """NaN != 0 is True, which would silently shift the inferred T0."""
+    df = panel["df"].copy()
+    idx = df[(df["unit"] == "treated")].index[3]
+    df.loc[idx, "treat"] = np.nan
+    with pytest.raises(ScspillDataError, match="treatment indicator"):
+        _prep(panel, df=df)
+
+
+def test_dict_w_unknown_keys_rejected(panel):
+    """A typoed dict key must raise, not silently zero the intended donor."""
+    w = {panel["units"][0]: 1.0, "Not-A-Unit": 0.5}
+    with pytest.raises(ScspillDataError, match="unknown donor keys"):
+        _prep(panel, spatial_w=w)
+
+
+def test_duplicate_labels_rejected(panel):
+    w_dup = pd.concat([panel["spatial_w"], panel["spatial_w"].iloc[[0]]])
+    with pytest.raises(ScspillDataError, match="duplicate"):
+        _prep(panel, spatial_w=w_dup)
+    W = panel["spatial_W"]
+    W_dup = pd.concat([W, W.iloc[[0]]])
+    with pytest.raises(ScspillDataError, match="duplicate"):
+        _prep(panel, spatial_W=W_dup)
+
+
+def test_negative_weights_rejected(panel):
+    w_neg = panel["spatial_w"].copy()
+    w_neg.iloc[0] = -1.0
+    with pytest.raises(ScspillDataError, match="non-negative"):
+        _prep(panel, spatial_w=w_neg)
+    W_neg = panel["spatial_W"].copy()
+    W_neg.iloc[0, 1] = -2.0
+    with pytest.raises(ScspillDataError, match="non-negative"):
+        _prep(panel, spatial_W=W_neg)
+
+
+def test_caller_arrays_not_write_protected(panel):
+    """Freezing the inputs must never mutate the caller's own arrays."""
+    W_user = panel["spatial_W"].to_numpy().astype(float)
+    w_user = panel["spatial_w"].to_numpy().astype(float)
+    _prep(panel, spatial_W=W_user, spatial_w=w_user)
+    assert W_user.flags.writeable
+    assert w_user.flags.writeable
+    W_user[0, 0] = W_user[0, 0]  # still assignable

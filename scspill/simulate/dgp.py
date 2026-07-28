@@ -62,8 +62,9 @@ def make_w(N: int, treated=(0, 1, 2, 3)) -> np.ndarray:
     N : int
         Number of control units.
     treated : int or sequence of int, default (0, 1, 2, 3)
-        Zero-based indices of the exposed controls (the R default ``1:4`` in
-        one-based indexing).
+        Zero-based indices of the exposed controls. The default matches the
+        paper's simulation design (the first four donors exposed, R's
+        ``1:4``); note the R *function* default is a single exposed donor.
 
     Returns
     -------
@@ -178,7 +179,7 @@ def scspill_sim_dgp(
     alpha: np.ndarray,
     K: int = 0,
     beta: np.ndarray | None = None,
-    seed: int | None = None,
+    seed=None,
     mu_tau: float = 1.0,
     sd_tau: float = 1.0,
     keep_internals: bool = False,
@@ -205,7 +206,7 @@ def scspill_sim_dgp(
         Number of iid ``N(0, 1)`` covariates.
     beta : np.ndarray, optional
         Covariate coefficients (required when ``K > 0``).
-    seed : int, optional
+    seed : int or numpy.random.SeedSequence, optional
         Seed for ``numpy.random.default_rng``.
     mu_tau, sd_tau : float, default 1.0
         Mean and sd of the per-period treatment effects.

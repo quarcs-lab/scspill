@@ -109,6 +109,6 @@ spill_post.abs().mean().sort_values(ascending=False).head(5).round(2)
 - With $T_0 = 11$ pre-periods and 33 donors, the horseshoe prior is doing
   real work: it shrinks most donor weights to zero and concentrates the fit
   on a few economies.
-- $\rho$ is estimated around 0.4 here versus about 0.2 in the California
-  application — trade integration transmits more of the shock than a single
-  land border.
+- $\rho$ is estimated around 0.4–0.5 here versus roughly 0.2–0.35 in the
+  California application (depending on the specification) — trade
+  integration transmits more of the shock than a single land border.

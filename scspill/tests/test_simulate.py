@@ -209,6 +209,42 @@ def test_run_one_sim_requires_dgp_or_args():
         run_one_sim()
 
 
+def test_run_one_sim_accepts_seedsequence_and_splits_streams():
+    """DGP and sampler noise come from independent child streams of the seed."""
+    args = {
+        "grid": (3, 3),
+        "T0": 10,
+        "T1": 3,
+        "rho": 0.1,
+        "sigma2": 0.1,
+        "alpha": np.array([0.5, -0.2, 0.4, 0.4, 0, 0, 0, 0, 0.0]),
+        "K": 1,
+        "beta": [1.0],
+    }
+    res = run_one_sim(dgp_args=args, m_iter=200, burn=100, seed=np.random.SeedSequence(42))
+    assert list(res.metrics["method"]) == ["SCM", "BSCM", "SCSPILL"]
+    # The DGP inside run_one_sim uses a spawned child, not the raw seed:
+    # regenerating with the raw integer gives a different panel.
+    from scspill.simulate.runner import _resolve_dgp
+
+    ss = np.random.SeedSequence(42)
+    dgp_child = _resolve_dgp(None, args, ss.spawn(2)[0])
+    dgp_raw = scspill_sim_dgp(
+        T0=10,
+        T1=3,
+        N=9,
+        W=rook_W(3, 3),
+        w=make_w(9),
+        rho=0.1,
+        sigma2=0.1,
+        alpha=args["alpha"],
+        K=1,
+        beta=np.ones(1),
+        seed=42,
+    )
+    assert not np.array_equal(dgp_child.Yc_pre, dgp_raw.Yc_pre)
+
+
 def test_run_many_sim_seeds_and_order():
     args = {
         "grid": (3, 3),

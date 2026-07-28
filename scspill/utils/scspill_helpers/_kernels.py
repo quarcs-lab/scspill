@@ -352,7 +352,10 @@ def sar_step2_loop(
                 for i in range(N):
                     tmp += 0.5 * Eta[i, k] * Eta[i, k] / _clip(s2_eta)
                 omega[k] = _clip(_ig(rng, 0.5 * (N + 1.0), 1.0 / _clip(nu_omega[k]) + tmp))
-                nu_omega[k] = _clip(_ig(rng, 1.0, 1.0 + 1.0 / _clip(omega[k])))
+                # 1/100 encodes the paper's omega_k ~ C+(0, 10); the C++
+                # reference used 1.0 (C+(0, 1)) here, unlike its own sibling
+                # s2_eta hierarchy.
+                nu_omega[k] = _clip(_ig(rng, 1.0, 1.0 / 100.0 + 1.0 / _clip(omega[k])))
 
         EG = (Eta @ Gamma).T.copy() if p > 0 else np.zeros((T0, N))
 
