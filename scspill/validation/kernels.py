@@ -199,8 +199,13 @@ class SimpleKernel:
         self.rho_support = (max(float(lo), -bnd), min(float(hi), bnd))
         if not self.rho_support[0] < self.rho_support[1]:
             raise ScspillDataError(f"SimpleKernel: empty rho support {self.rho_support}.")
-        self._X2 = X.reshape(T0 * N, K) if K > 0 else np.zeros((0, 0))
-        self._XtX = self._X2.T @ self._X2 if K > 0 else np.zeros((0, 0))
+        if K > 0:
+            assert X is not None  # validated above
+            self._X2 = X.reshape(T0 * N, K)
+            self._XtX = self._X2.T @ self._X2
+        else:
+            self._X2 = np.zeros((0, 0))
+            self._XtX = np.zeros((0, 0))
 
     # -- Geweke protocol ---------------------------------------------------
     def draw_prior(self, rng: np.random.Generator) -> SimpleState:

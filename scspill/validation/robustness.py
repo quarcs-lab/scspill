@@ -351,7 +351,7 @@ def prior_sensitivity(
         raise ScspillConfigError(f"prior_sensitivity: grid is missing columns {sorted(missing)}.")
     runs = []
     frames = []
-    for i, row in grid.reset_index(drop=True).iterrows():
+    for i, (_, row) in enumerate(grid.reset_index(drop=True).iterrows()):
         summary = run_posterior_mcmc(
             Yc_obs,
             spatial_W,
@@ -366,7 +366,7 @@ def prior_sensitivity(
             m_burn=m_burn,
             m_keep=m_keep,
             thin=thin,
-            seed=base_seed + int(i),
+            seed=base_seed + i,
             kernel=kernel,
         )
         runs.append(summary)

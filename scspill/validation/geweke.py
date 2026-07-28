@@ -24,6 +24,7 @@ kernel's ``rho_support``) is used on both sides.
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -246,11 +247,38 @@ def geweke_test(
             else 0.4 * rng.standard_normal(N)
         )
         X_use = X if X is not None else (rng.standard_normal((T0, N, K)) if K > 0 else None)
-        common = dict(X=X_use, a0=a0, b0=b0, step_rho=step_rho, rho_support=rho_support)
+        kern: Any
         if kernel == "simple":
-            kern = SimpleKernel(T0, N, K, p, Wn, wn, alpha_use, **common)
+            kern = SimpleKernel(
+                T0,
+                N,
+                K,
+                p,
+                Wn,
+                wn,
+                alpha_use,
+                X=X_use,
+                a0=a0,
+                b0=b0,
+                step_rho=step_rho,
+                rho_support=rho_support,
+            )
         elif kernel == "production":
-            kern = ProductionKernel(T0, N, K, p, Wn, wn, alpha_use, beta_prior=beta_prior, **common)
+            kern = ProductionKernel(
+                T0,
+                N,
+                K,
+                p,
+                Wn,
+                wn,
+                alpha_use,
+                beta_prior=beta_prior,
+                X=X_use,
+                a0=a0,
+                b0=b0,
+                step_rho=step_rho,
+                rho_support=rho_support,
+            )
         else:
             raise ScspillConfigError(f"geweke_test: unknown kernel {kernel!r}.")
     else:
@@ -313,17 +341,17 @@ def geweke_test(
     table = pd.DataFrame(
         {
             "g": keep,
-            "mean_iid": mean_iid.to_numpy(),
-            "mean_mcmc": mean_mcmc.to_numpy(),
-            "se_iid": se_iid.to_numpy(),
-            "se_mcmc": se_mcmc.to_numpy(),
-            "z": z.to_numpy(),
+            "mean_iid": np.asarray(mean_iid, dtype=float),
+            "mean_mcmc": np.asarray(mean_mcmc, dtype=float),
+            "se_iid": np.asarray(se_iid, dtype=float),
+            "se_mcmc": np.asarray(se_mcmc, dtype=float),
+            "z": np.asarray(z, dtype=float),
             "pval": pval,
         }
     )
 
-    finite_z = table["z"].to_numpy()
-    finite_z = finite_z[np.isfinite(finite_z)]
+    z_arr = np.asarray(table["z"], dtype=float)
+    finite_z = z_arr[np.isfinite(z_arr)]
     n_stats = max(1, finite_z.size)
     z_crit = float(
         norm.ppf(1.0 - alpha_level / (2.0 * n_stats))
@@ -339,7 +367,7 @@ def geweke_test(
         m_mcmc=int(m_mcmc),
         burn=int(burn),
         batch_size=int(batch_size),
-        rho_support=tuple(kern.rho_support),
+        rho_support=(float(kern.rho_support[0]), float(kern.rho_support[1])),
         z_crit=z_crit,
         n_flagged=n_flagged,
         passed=(n_flagged == 0),
