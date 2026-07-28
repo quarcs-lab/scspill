@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.2.1 (2026-07-28)
+
+Authorship metadata only; no functional change.
+
+- **Carlos Mendez is the sole author of the software**, in `CITATION.cff` and
+  in the package metadata. Shosei Sakaguchi and Hayato Tagawa authored the
+  method and the R/C++ implementation the `sar` model ports, and they are
+  credited where that belongs: as the authors of the article and of the
+  replication package, both listed under `references` in `CITATION.cff`, and
+  in the acknowledgements. Cite their article whenever you fit `sar`.
+- `LICENSE` is unchanged and still carries their copyright notice. That is a
+  condition of reusing their MIT-licensed code, and is independent of who
+  authored this package.
+
 ## v0.2.0 (2026-07-28)
 
 scspill is now presented as what it is becoming: a package of **synthetic

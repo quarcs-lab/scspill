@@ -118,9 +118,8 @@ make docs      # quartodoc build -> quarto render -> llms.txt
 If you use scspill, please cite both the software and the methodological
 article (machine-readable metadata lives in `CITATION.cff`):
 
-> Mendez, C., Sakaguchi, S., & Tagawa, H. (2026). *Synthetic Control Models
-> with Spillovers in Python* (version 0.2.0).
-> <https://github.com/quarcs-lab/scspill>
+> Mendez, C. (2026). *Synthetic Control Models with Spillovers in Python*
+> (version 0.2.1). <https://github.com/quarcs-lab/scspill>
 
 > Sakaguchi, S., & Tagawa, H. (2026). Identification and Bayesian Inference
 > for Synthetic Control Methods with Spillover Effects. *The Econometrics
@@ -128,14 +127,15 @@ article (machine-readable metadata lives in `CITATION.cff`):
 
 ## Acknowledgments
 
-The method and the original R/C++ implementation are the work of Shosei
-Sakaguchi and Hayato Tagawa, who are credited as co-authors of this library
-on that basis; the Python implementation is by Carlos Mendez and any bug in
-it is his. Their [replication
-package](https://doi.org/10.5281/zenodo.19066186) is MIT-licensed, and every
-release of scspill is cross-validated against its frozen results. The
-estimator architecture follows Jared Greathouse's mlsynth; the documentation
-stack follows the QuaRCS-lab geometrics package.
+The `sar` model and its original R/C++ implementation are the work of Shosei
+Sakaguchi and Hayato Tagawa. Please cite their article whenever you fit that
+model — it is listed in `CITATION.cff` and reproduced above. Their
+[replication package](https://doi.org/10.5281/zenodo.19066186) is
+MIT-licensed, its copyright notice is retained in `LICENSE`, and every
+release of scspill is cross-validated against its frozen results. The Python
+package is written and maintained by Carlos Mendez, and any bug in it is his.
+The estimator architecture follows Jared Greathouse's mlsynth; the
+documentation stack follows the QuaRCS-lab geometrics package.
 
 ## License
 

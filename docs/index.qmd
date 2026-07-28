@@ -151,9 +151,8 @@ architecture it shares.
 
 Please cite both the software and the article it implements:
 
-> Mendez, C., Sakaguchi, S., & Tagawa, H. (2026). *Synthetic Control Models
-> with Spillovers in Python* (version 0.2.0).
-> <https://github.com/quarcs-lab/scspill>
+> Mendez, C. (2026). *Synthetic Control Models with Spillovers in Python*
+> (version 0.2.1). <https://github.com/quarcs-lab/scspill>
 
 > Sakaguchi, S., & Tagawa, H. (2026). Identification and Bayesian Inference
 > for Synthetic Control Methods with Spillover Effects. *The Econometrics
@@ -164,8 +163,8 @@ machine-readable form.
 
 ## Acknowledgement
 
-The method and the original R/C++ implementation are the work of Shosei
-Sakaguchi and Hayato Tagawa, who are credited as co-authors of this library
-on that basis. The Python implementation — an independent port with
-paper-correct defaults — is by Carlos Mendez at the
+The `sar` model and its original R/C++ implementation are the work of Shosei
+Sakaguchi and Hayato Tagawa; please cite their article whenever you fit that
+model. The Python package — an independent port with paper-correct defaults —
+is written and maintained by Carlos Mendez at the
 [QuaRCS lab](https://quarcs-lab.org).
