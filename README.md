@@ -98,18 +98,27 @@ make docs      # quartodoc build -> quarto render -> llms.txt
 
 ## Citing
 
-If you use scspill, please cite the methodological article and the software
-(see `CITATION.cff`):
+If you use scspill, please cite both the software and the methodological
+article (machine-readable metadata lives in `CITATION.cff`):
 
-> Sakaguchi, S., & Tagawa, H. Identification and Bayesian Inference for
-> Synthetic Control Methods with Spillover Effects. *The Econometrics
-> Journal*.
+> Mendez, C., Sakaguchi, S., & Tagawa, H. (2026). *Bayesian Synthetic Control
+> with Spillovers in Python* (version 0.1.1).
+> <https://github.com/quarcs-lab/scspill>
+
+> Sakaguchi, S., & Tagawa, H. (2026). Identification and Bayesian Inference
+> for Synthetic Control Methods with Spillover Effects. *The Econometrics
+> Journal*. <https://doi.org/10.1093/ectj/utag006>
 
 ## Acknowledgments
 
-The method and reference implementation are by Shosei Sakaguchi and Hayato
-Tagawa. The estimator architecture follows Jared Greathouse's mlsynth; the
-documentation stack follows the QuaRCS-lab geometrics package.
+The method and the original R/C++ implementation are the work of Shosei
+Sakaguchi and Hayato Tagawa, who are credited as co-authors of this library
+on that basis; the Python implementation is by Carlos Mendez and any bug in
+it is his. Their [replication
+package](https://doi.org/10.5281/zenodo.19066186) is MIT-licensed, and every
+release of scspill is cross-validated against its frozen results. The
+estimator architecture follows Jared Greathouse's mlsynth; the documentation
+stack follows the QuaRCS-lab geometrics package.
 
 ## License
 

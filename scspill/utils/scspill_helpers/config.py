@@ -15,9 +15,9 @@ class SCSPILLConfig(BaseEstimatorConfig):
 
     Implements:
 
-        Sakaguchi, S., & Tagawa, H. "Identification and Bayesian Inference
-        for Synthetic Control Methods with Spillover Effects." The
-        Econometrics Journal.
+        Sakaguchi, S., & Tagawa, H. (2026). "Identification and Bayesian
+        Inference for Synthetic Control Methods with Spillover Effects." The
+        Econometrics Journal. https://doi.org/10.1093/ectj/utag006
 
     The panel is a long DataFrame (one row per unit-period). The treated unit
     and the treatment date are inferred from the 0/1 ``treat`` indicator

@@ -2,9 +2,9 @@
 
 Implements:
 
-    Sakaguchi, S., & Tagawa, H. "Identification and Bayesian Inference for
-    Synthetic Control Methods with Spillover Effects." The Econometrics
-    Journal.
+    Sakaguchi, S., & Tagawa, H. (2026). "Identification and Bayesian
+    Inference for Synthetic Control Methods with Spillover Effects." The
+    Econometrics Journal. https://doi.org/10.1093/ectj/utag006
 
 The method relaxes SUTVA: the treatment can spill over to the donor pool
 through a spatial-autoregressive structure with user-supplied weights

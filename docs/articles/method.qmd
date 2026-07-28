@@ -136,9 +136,9 @@ entering correctly, $\hat\rho$ moves to roughly $0.35$. The benchmark suite
 
 ## References
 
-- Sakaguchi, S., & Tagawa, H. *Identification and Bayesian Inference for
-  Synthetic Control Methods with Spillover Effects.* The Econometrics
-  Journal.
+- Sakaguchi, S., & Tagawa, H. (2026). *Identification and Bayesian Inference
+  for Synthetic Control Methods with Spillover Effects.* The Econometrics
+  Journal. <https://doi.org/10.1093/ectj/utag006>
 - Abadie, A., Diamond, A., & Hainmueller, J. (2010). Synthetic control
   methods for comparative case studies. *JASA* 105(490).
 - Carvalho, C., Polson, N., & Scott, J. (2010). The horseshoe estimator for

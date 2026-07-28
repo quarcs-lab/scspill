@@ -1,8 +1,20 @@
 cff-version: 1.2.0
 message: "If you use scspill, please cite the software and the methodological article below."
-title: "scspill: Bayesian spatial-spillover synthetic control in Python"
+title: "Bayesian Synthetic Control with Spillovers in Python"
+abstract: "scspill implements the Bayesian spatial-spillover synthetic control method of Sakaguchi and Tagawa: a synthetic control estimator that relaxes SUTVA by letting the treatment spill over to the donor pool through a spatial-autoregressive channel, recovering both the effect on the treated unit and the spillover received by every donor."
 type: software
 authors:
+  - family-names: Mendez
+    given-names: Carlos
+    email: carlosmendez777@gmail.com
+    affiliation: "QuaRCS Lab"
+  - family-names: Sakaguchi
+    given-names: Shosei
+    affiliation: "The University of Tokyo"
+  - family-names: Tagawa
+    given-names: Hayato
+    affiliation: "The University of Tokyo"
+contact:
   - family-names: Mendez
     given-names: Carlos
     email: carlosmendez777@gmail.com
@@ -10,7 +22,7 @@ authors:
 repository-code: "https://github.com/quarcs-lab/scspill"
 url: "https://quarcs-lab.github.io/scspill/"
 license: MIT
-version: 0.1.0
+version: 0.1.1
 date-released: "2026-07-28"
 keywords:
   - synthetic control
@@ -28,4 +40,18 @@ references:
       - family-names: Tagawa
         given-names: Hayato
     journal: "The Econometrics Journal"
+    year: 2026
     doi: "10.1093/ectj/utag006"
+    url: "https://doi.org/10.1093/ectj/utag006"
+  - type: software
+    title: "Replication package for 'Identification and Bayesian Inference for Synthetic Control Methods with Spillover Effects'"
+    authors:
+      - family-names: Sakaguchi
+        given-names: Shosei
+      - family-names: Tagawa
+        given-names: Hayato
+    year: 2026
+    doi: "10.5281/zenodo.19066186"
+    url: "https://zenodo.org/records/19066186"
+    license: MIT
+    notes: "The R and C++ implementation that scspill ports."
