@@ -38,7 +38,7 @@ try:  # pragma: no cover - depends on the optional numba extra
     from numba.extending import register_jitable as _jitable
 except ImportError:  # pragma: no cover
 
-    def _jitable(func):
+    def _jitable(func):  # type: ignore[no-redef]
         """Identity decorator when numba is not installed."""
         return func
 
