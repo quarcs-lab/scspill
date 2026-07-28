@@ -1,7 +1,9 @@
-"""Bundled case-study datasets for scspill.
+"""Bundled case-study spillover panels for scspill.
 
-Ships the two empirical applications of Sakaguchi & Tagawa inside the wheel,
-each as a long panel plus its spatial-weight specification:
+Ships the two empirical applications of the ``sar`` model's source article
+(Sakaguchi & Tagawa 2026) inside the wheel, each as a long panel plus its
+spatial-weight specification. Nothing about them is model-specific: they are
+ordinary spillover panels and will serve any model added later.
 
 * :func:`load_california` -- the California Proposition 99 tobacco panel
   (Abadie, Diamond & Hainmueller 2010): 39 states, 1970-2000, treatment in

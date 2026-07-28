@@ -49,7 +49,7 @@ Two practical notes, learned the hard way (details in the
   batch size large;
 - this very test caught two internal inconsistencies in the reference R
   implementation's latent-factor block (see the
-  [method article](method.qmd)); with the coherent parametrization every
+  [`sar` model page](../models/sar.qmd)); with the coherent parametrization every
   isolated sampler block passes.
 
 ## Prior sensitivity
@@ -117,7 +117,7 @@ The repository's `benchmarks/` directory runs the durable comparisons:
 
 - California and Sudan posteriors against the frozen R credible intervals
   (matching the R specification, and separately reporting the paper-correct
-  one — see the [method article](method.qmd) for why those differ);
+  one — see the [`sar` model page](../models/sar.qmd) for why those differ);
 - the reduced Monte Carlo grid against the paper's frozen Tables 1–2 CSVs;
 - this Geweke test at a quarter-million draws.
 

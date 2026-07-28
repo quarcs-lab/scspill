@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use scspill, please cite the software and the methodological article below."
 title: "Synthetic Control Models with Spillovers in Python"
-abstract: "scspill implements the Bayesian spatial-spillover synthetic control method of Sakaguchi and Tagawa: a synthetic control estimator that relaxes SUTVA by letting the treatment spill over to the donor pool through a spatial-autoregressive channel, recovering both the effect on the treated unit and the spillover received by every donor."
+abstract: "scspill is a Python package of synthetic control models that relax SUTVA: estimators that let a treatment reach the donor pool, recovering both the effect on the treated unit and the spillover effect received by every control unit. It currently implements one model, the Bayesian spatial-autoregressive method of Sakaguchi and Tagawa (method='sar'), which routes spillovers through user-supplied spatial weights scaled by a single estimated intensity and returns full posterior uncertainty for both estimands. Further spillover-aware models are planned behind the same interface."
 type: software
 authors:
   - family-names: Mendez

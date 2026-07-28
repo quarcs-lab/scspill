@@ -1,33 +1,39 @@
-"""scspill: Bayesian spatial-spillover synthetic control.
+"""scspill: synthetic control models with spillover effects.
 
-Implements:
+Synthetic control estimators that relax SUTVA -- the treatment is allowed to
+reach the donor pool -- and that report two estimands: the effect on the
+treated unit, purged of the contamination, and the spillover effect received
+by every control unit.
 
-    Sakaguchi, S., & Tagawa, H. (2026). "Identification and Bayesian
-    Inference for Synthetic Control Methods with Spillover Effects." The
-    Econometrics Journal. https://doi.org/10.1093/ectj/utag006
+The package is organized around a model layer, selected by ``method``.
+Exactly one model ships today:
 
-A synthetic control method that relaxes SUTVA: spillovers from the treated
-unit to the donor pool are modeled through a spatial-autoregressive (SAR)
-structure with user-supplied spatial weights, and both the treatment effect on
-the treated and the spillover effect received by every control unit are
-identified from the synthetic-control weights ``alpha``, the spillover
-intensity ``rho``, and the weights ``(w, W)``. Estimation is a two-step
-Bayesian sampler: a horseshoe Gibbs sampler for ``alpha`` on the
-pre-treatment fit, then a SAR block (latent AR(1) factors, covariates, and a
-random-walk Metropolis step for ``rho``) conditional on the posterior mean of
-``alpha``.
+``"sar"``
+    The Bayesian spatial-autoregressive model of Sakaguchi & Tagawa (2026),
+    https://doi.org/10.1093/ectj/utag006. Spillovers from the treated unit to
+    the donor pool travel through a spatial-autoregressive structure with
+    user-supplied weights, and both estimands are identified from the
+    synthetic-control weights ``alpha``, the spillover intensity ``rho``, and
+    the weights ``(w, W)`` alone. Estimation is a two-step Bayesian sampler: a
+    horseshoe Gibbs sampler for ``alpha`` on the pre-treatment fit, then a SAR
+    block (latent AR(1) factors, covariates, and a random-walk Metropolis step
+    for ``rho``) conditional on the posterior mean of ``alpha``.
+
+Further spillover-aware models are planned behind the same interface; the
+catalogue at https://quarcs-lab.github.io/scspill/models/ tracks them and
+states plainly which are implemented.
 
 Public API::
 
     from scspill import SCSPILL, SCSPILLConfig
 
-    result = SCSPILL(config).fit()   # -> SCSPILLResults
+    result = SCSPILL(config).fit()   # -> SCSPILLResults  (method="sar")
 
-plus the companion subpackages :mod:`scspill.validation` (Geweke joint
-distribution test, prior sensitivity, prior predictive checks),
-:mod:`scspill.simulate` (the paper's Monte Carlo engine), and
+plus the companion subpackages :mod:`scspill.validation` (the ``sar`` model's
+Geweke joint distribution test, prior sensitivity, and prior predictive
+checks), :mod:`scspill.simulate` (that model's Monte Carlo engine), and
 :mod:`scspill.data` (the bundled California Proposition 99 and Sudan
-secession case studies).
+secession spillover panels).
 """
 
 from importlib.metadata import PackageNotFoundError, version

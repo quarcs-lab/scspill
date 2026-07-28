@@ -1,12 +1,19 @@
 ---
-title: "The method: identification and two-step Bayesian inference"
-subtitle: "What scspill estimates, and exactly how"
+title: "`sar` — the Bayesian spatial-autoregressive spillover model"
+subtitle: "Sakaguchi & Tagawa (2026): identification and two-step Bayesian inference"
+aliases:
+  - /articles/method.html
 ---
 
-This page states the model and the estimator implemented by scspill —
+`sar` is scspill's first model, and today its only one — the
+[model catalogue](index.qmd) lists what else is planned. It implements
 Sakaguchi & Tagawa's *Identification and Bayesian Inference for Synthetic
-Control Methods with Spillover Effects* — and documents precisely where this
+Control Methods with Spillover Effects*. This page states the model, the
+identification result, and the samplers, and documents precisely where this
 implementation deliberately departs from the authors' R replication package.
+
+Select it with `method="sar"` in `SCSPILLConfig`. It is the default, so
+existing code needs no change.
 
 ## Setup
 
@@ -111,9 +118,10 @@ uses a one-time eigendecomposition of $\mathbf W$ plus the Sherman–Morrison
 identity for the rank-one term $\rho\, \mathbf w \hat{\boldsymbol\alpha}^\top$,
 so the whole posterior sweep costs $O(M N^2 T)$.
 
-## Where scspill departs from the R replication package
+## Where `sar` departs from the R replication package
 
-scspill defaults to the *paper-correct* behavior and documents every
+These differences belong to this model's port, not to scspill as a whole.
+`sar` defaults to the *paper-correct* behavior and documents every
 difference; several came out of validating the port. Each has either an
 escape hatch or a benchmark demonstrating the consequence.
 
@@ -127,7 +135,7 @@ escape hatch or a benchmark demonstrating the consequence.
 | 6 | the FFBS initializes $\gamma_1$ from the stationary AR(1) variance while the $\phi_\gamma$ / $\sigma^2_\gamma$ conditionals assume $\gamma_1 \sim \mathcal N(0, \sigma^2_\gamma)$ | the coherent $\gamma_0 = 0$ initialization | — |
 
 Items 5–6 were caught by the [Geweke joint distribution
-test](validation.qmd) — with the fixes, every sampler block passes it.
+test](../articles/validation.qmd) — with the fixes, every sampler block passes it.
 Item 1 has a striking consequence: fitted *without* covariates, scspill
 reproduces the R California posterior almost exactly
 ($\hat\rho = 0.187$ vs. R's $0.185$); with the retail-price covariate

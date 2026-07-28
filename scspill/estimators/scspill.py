@@ -1,6 +1,6 @@
-"""Bayesian spatial-spillover synthetic control (SCSPILL).
+"""The ``sar`` model: Bayesian spatial-autoregressive spillover SCM.
 
-Implements:
+scspill's first model -- today its only one -- implementing:
 
     Sakaguchi, S., & Tagawa, H. (2026). "Identification and Bayesian
     Inference for Synthetic Control Methods with Spillover Effects." The
@@ -17,7 +17,8 @@ then a SAR block (latent AR(1) factors, covariates, random-walk Metropolis
 for ``rho``) conditional on the posterior mean of ``alpha``. At ``rho = 0``
 the method collapses exactly to the Bayesian horseshoe synthetic control.
 
-See ``scspill.utils.scspill_helpers`` for the algorithmic pieces.
+See ``scspill.utils.scspill_helpers.sar`` for this model's algorithmic
+pieces, and ``scspill.utils`` for what every spillover model shares.
 """
 
 from __future__ import annotations
@@ -41,7 +42,11 @@ from ..utils.scspill_helpers.structures import SCSPILLResults
 
 
 class SCSPILL:
-    """Bayesian spatial-spillover synthetic control estimator.
+    """Spillover-aware synthetic control estimator (model ``sar``).
+
+    Fits the Bayesian spatial-autoregressive spillover model of Sakaguchi &
+    Tagawa (2026) -- scspill's first and, today, only model. Select it with
+    ``method="sar"``; that is the default, so existing code needs no change.
 
     Parameters
     ----------

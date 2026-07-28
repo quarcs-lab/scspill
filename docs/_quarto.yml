@@ -6,9 +6,10 @@ project:
 
 website:
   title: "scspill"
-  description: "Bayesian spatial-spillover synthetic control (Sakaguchi & Tagawa) in Python."
+  description: "Synthetic control models with spillover effects, in Python — the effect on the treated unit and the spillover received by every donor."
   favicon: images/favicon.png
   repo-url: https://github.com/quarcs-lab/scspill
+  repo-subdir: docs
   repo-actions: [issue, edit]
   navbar:
     background: primary
@@ -17,14 +18,19 @@ website:
         file: index.qmd
       - text: "Get started"
         file: get-started.qmd
+      - text: "Models"
+        menu:
+          - text: "All models — catalogue and roadmap"
+            file: models/index.qmd
+          - text: "---"
+          - text: "sar — Bayesian spatial-autoregressive spillover SCM"
+            file: models/sar.qmd
       - text: "Sudan case study"
         file: sudan.qmd
       - text: "For AI / LLMs"
         file: use-with-llms.qmd
       - text: "Articles"
         menu:
-          - text: "The method: identification and two-step Bayesian inference"
-            file: articles/method.qmd
           - text: "Validating the sampler (Geweke, prior checks)"
             file: articles/validation.qmd
           - text: "The Monte Carlo simulation study"
@@ -76,19 +82,21 @@ quartodoc:
   sections:
     - title: Estimator
       desc: >-
-        The Bayesian spatial-spillover synthetic control — configure once, fit
-        once: `SCSPILL(config).fit()` runs the two-step sampler (horseshoe
-        synthetic weights, then the SAR spillover block) and returns a
-        `SCSPILLResults` with the treatment effect, its credible interval, and
-        the spillover received by every donor.
+        Configure once, fit once. `SCSPILL(config).fit()` runs the spillover
+        model named by `method` — today `"sar"`, whose two-step sampler fits
+        the horseshoe synthetic weights and then the SAR spillover block — and
+        returns a `SCSPILLResults` with the treatment effect, its credible
+        interval, and the spillover received by every donor. The
+        [model catalogue](../models/index.qmd) says which models exist.
       package: scspill.estimators.scspill
       contents:
         - SCSPILL
     - title: Configuration
       desc: >-
-        The pydantic input contract — the long panel and its column names, the
-        spatial weights `spatial_w` / `spatial_W` (label-aligned), covariates,
-        the MCMC budget, priors, and the paper-correct switches
+        The pydantic input contract — `method` (the spillover model; `"sar"`
+        is the only accepted value today), the long panel and its column
+        names, the spatial weights `spatial_w` / `spatial_W` (label-aligned),
+        covariates, the MCMC budget, priors, and the paper-correct switches
         (`beta_prior`, `propagate_alpha`, `adapt_rho`) with their R-compatible
         settings.
       package: scspill.utils.scspill_helpers.config
@@ -109,11 +117,13 @@ quartodoc:
         - SCSPILLEffects
     - title: Validation & prior checks
       desc: >-
-        The paper's appendix machinery as user-facing functions — the Geweke
-        (2004) joint distribution test of the Step-2 sampler (simplified and
-        production kernels), prior-sensitivity re-runs across hyperparameter
-        grids, and prior predictive checks against nine summary statistics of
-        the pre-treatment donor panel.
+        The `sar` article's appendix machinery as user-facing functions — the
+        Geweke (2004) joint distribution test of that model's Step-2 sampler
+        (simplified and production kernels), prior-sensitivity re-runs across
+        hyperparameter grids, and prior predictive checks against nine summary
+        statistics of the pre-treatment donor panel. These target `sar`; the
+        Geweke harness already accepts a custom kernel, so a model added later
+        plugs in here rather than replacing it.
       package: scspill.validation
       contents:
         - geweke_test
@@ -125,10 +135,11 @@ quartodoc:
         - plot_prior_predictive
     - title: Simulation
       desc: >-
-        The paper's Monte Carlo engine — simulate spillover panels from a known
-        SAR data-generating process on a rook lattice, fit the classical SCM,
-        the Bayesian horseshoe SCM, and SCSPILL on each replication, and score
-        bias, RMSE, and coverage (the Tables 1–2 design).
+        The `sar` article's Monte Carlo engine — simulate spillover panels from
+        a known SAR data-generating process on a rook lattice, fit the
+        classical SCM, the Bayesian horseshoe SCM, and `sar` on each
+        replication, and score bias, RMSE, and coverage (its Tables 1–2
+        design). This is that model's design, not a package-wide framework.
       package: scspill.simulate
       contents:
         - scspill_sim_dgp
@@ -141,10 +152,10 @@ quartodoc:
         - make_w
     - title: Diagnostics
       desc: >-
-        Convergence diagnostics for the posterior chains — effective sample
+        Model-agnostic convergence diagnostics for posterior chains — effective sample
         size, split-chain R-hat, Monte Carlo standard errors, Geweke z-scores,
         and the posterior summary table behind `SCSPILLResults.diagnostics()`.
-      package: scspill.utils.scspill_helpers.diagnostics
+      package: scspill.utils.diagnostics
       contents:
         - ess_acf
         - split_rhat
@@ -153,11 +164,12 @@ quartodoc:
         - mcmc_summary
     - title: Datasets
       desc: >-
-        The two bundled case studies from the paper, shipped inside the wheel —
-        the California Proposition 99 tobacco panel (39 states, 1970–2000, rook
+        Two bundled spillover case studies, shipped inside the wheel — the
+        California Proposition 99 tobacco panel (39 states, 1970–2000, rook
         contiguity weights) and the 2011 Sudan secession panel (34 African
         countries, 2000–2015, bilateral-trade weights). Each loader returns a
-        `SpillPanel` whose `config_kwargs()` feeds `SCSPILLConfig` directly.
+        `SpillPanel` whose `config_kwargs()` feeds any spillover model's
+        configuration directly.
       package: scspill.data
       contents:
         - load_california

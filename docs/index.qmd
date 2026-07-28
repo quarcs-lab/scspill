@@ -7,21 +7,26 @@
 **Synthetic control when the treatment leaks: estimate the policy effect *and* the spillover received by every donor.**
 :::
 
-**scspill** is a Python implementation of the Bayesian spatial-spillover
-synthetic control of Sakaguchi & Tagawa (*Identification and Bayesian
-Inference for Synthetic Control Methods with Spillover Effects*, The
-Econometrics Journal). Classical synthetic control assumes the donors are
-untouched by the treatment; when a policy spills across borders (or trade
-links), that assumption fails and the estimate is biased. scspill models the
-leakage with a spatial-autoregressive structure and recovers both the
-treatment effect on the treated unit and the spillover effect on each donor
-— from user-supplied spatial weights, a horseshoe-regularized donor fit, and
-one spillover intensity $\rho$.
+**scspill** is a Python package of synthetic control models with spillover
+effects. Classical synthetic control assumes the donors are untouched by the
+treatment; when a policy spills across borders or trade links, that
+assumption fails and the estimate is biased. Every model here drops it, and
+every model returns two things classical synthetic control cannot both give
+you: the effect on the treated unit, purged of contamination, and the
+spillover effect received by each donor.
+
+One model ships today — [`sar`](models/sar.qmd), the Bayesian
+spatial-autoregressive method of Sakaguchi & Tagawa (*Identification and
+Bayesian Inference for Synthetic Control Methods with Spillover Effects*, The
+Econometrics Journal), which models the leakage through user-supplied spatial
+weights, a horseshoe-regularized donor fit, and one estimated spillover
+intensity $\rho$. The [model catalogue](models/index.qmd) lists it, names the
+models on the roadmap, and marks plainly which are implemented.
 
 ```{=html}
 <div class="hero-cta">
   <a class="xpd-btn xpd-btn--app" href="get-started.qmd">Get started &rarr;</a>
-  <a class="xpd-btn xpd-btn--ghost" href="articles/method.qmd">Read the method</a>
+  <a class="xpd-btn xpd-btn--ghost" href="models/index.qmd">Browse the models</a>
   <a class="xpd-btn xpd-btn--ghost" href="https://github.com/quarcs-lab/scspill" target="_blank" rel="noopener">&#11088; Star on GitHub</a>
 </div>
 ```
@@ -30,8 +35,8 @@ one spillover intensity $\rho$.
 
 ::: {.g-col-12 .g-col-md-4 .module-card}
 ### [🎯 Estimate](get-started.qmd)
-One config, one fit: `SCSPILL(config).fit()` runs the **two-step Bayesian
-sampler** and returns the ATT with credible intervals, the counterfactual
+Pick a model, configure once, fit once. Today that model is **`sar`**:
+`SCSPILL(config).fit()` runs the **two-step Bayesian sampler** and returns the ATT with credible intervals, the counterfactual
 path, the posterior of $\rho$, and a **time-by-donor spillover panel**.
 
 ```{=html}
@@ -43,21 +48,36 @@ path, the posterior of $\rho$, and a **time-by-donor spillover panel**.
 
 ::: {.g-col-12 .g-col-md-4 .module-card}
 ### [🔬 Validate](articles/validation.qmd)
-The paper's appendix machinery, built in: the **Geweke joint distribution
+`sar` ships its article's appendix machinery as first-class functions: the **Geweke joint distribution
 test** of the sampler, **prior sensitivity** sweeps, and **prior predictive
 checks** against nine statistics of the donor panel.
 :::
 
 ::: {.g-col-12 .g-col-md-4 .module-card}
 ### [🎲 Simulate](articles/simulation-study.qmd)
-The paper's **Monte Carlo engine**: plant $\rho$ and the treatment effect on
+`sar`'s **Monte Carlo engine**: plant $\rho$ and the treatment effect on
 a lattice, watch classical SCM go wrong under spillovers, and score bias,
 RMSE, and coverage across estimators.
 :::
 
 :::
 
-## What's inside
+## The models
+
+| Model | `method` | Reference | Status |
+|---|---|---|---|
+| [Bayesian spatial-autoregressive spillover SCM](models/sar.qmd) | `"sar"` | Sakaguchi & Tagawa (2026), *Econometrics Journal* | **Available** |
+| SCM with spillover effects | `"cd"` | Cao & Dowd (2019, rev. 2026) | Planned |
+| Inclusive synthetic control | `"iscm"` | Di Stefano & Mellace (2024) | Planned |
+| Partial-interference SCG | `"grossi"` | Grossi et al. (2025), *JRSS-A* | Planned |
+
+The planned rows are a roadmap, not a feature list: they are not implemented
+and their `method` names are rejected rather than silently substituted. The
+[model catalogue](models/index.qmd) explains what each would assume, and why
+having several matters — the assumptions are not nested, so two models
+bracket the answer.
+
+## What a `sar` fit needs and returns
 
 The treated unit is matched by unconstrained, horseshoe-shrunk synthetic
 weights $\alpha$ (donors can be excluded, weighted negatively, or extrapolated
@@ -107,7 +127,7 @@ result.spillover_panel["Nevada"]   # the effect received by Nevada
 result.plot(kind="panel")          # counterfactual | effect | top spillovers
 ```
 
-## Validated, not just implemented
+## `sar` is validated, not just implemented
 
 Every release is cross-validated against the authors' R replication package
 (see the [validation article](articles/validation.qmd) and

@@ -1,4 +1,4 @@
-"""Monte Carlo simulation engine for SCSPILL (the paper's Section 5 design).
+"""Monte Carlo engine for the ``sar`` model (its article's Section 5 design).
 
 Simulate spillover panels from a known SAR data-generating process (rook
 lattice weights, planted synthetic weights and spillover intensity), fit the

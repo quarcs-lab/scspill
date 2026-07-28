@@ -1,0 +1,118 @@
+---
+title: "Models"
+subtitle: "Synthetic control estimators that let the treatment reach the donor pool"
+---
+
+Classical synthetic control assumes SUTVA on the donor pool: whatever happens
+to the treated unit leaves the controls untouched. When that fails — a tobacco
+tax that pushes sales across a state line, a secession that travels a trade
+network, a tramway that redirects footfall one street over — the synthetic
+counterfactual is built partly from contaminated donors and the estimate is
+biased. Synthetic control is especially exposed here, because its weights
+actively select the donors most correlated with the treated unit, and those
+are often exactly the units the treatment leaks into.
+
+Every model in scspill drops that assumption and reports **two** estimands:
+
+- $\xi_{0t}$ — the treatment effect on the treated unit, purged of the
+  contamination; and
+- $\xi_{it}$ — the spillover effect *received by donor $i$*, which classical
+  synthetic control cannot express at all.
+
+What the models disagree about is what to assume about the leakage: a spatial
+process on the donor outcomes, a researcher-specified spillover structure, an
+inversion of the donors' own cross-weights, or a partition into exposed and
+clean clusters. Those assumptions are not nested, which is exactly why it is
+worth having more than one — run two and they bracket the answer.
+
+## Available now
+
+::: {.callout-important}
+## One model ships today
+scspill implements **one** model. Everything under
+[Planned](#planned) below is a roadmap: none of it is implemented, and none of
+those `method` names is accepted. Passing one raises a validation error rather
+than silently falling back.
+:::
+
+| Model | `method` | Reference | Class | Page |
+|---|---|---|---|---|
+| Bayesian spatial-autoregressive spillover SCM | `"sar"` | Sakaguchi & Tagawa (2026), *The Econometrics Journal*, [doi:10.1093/ectj/utag006](https://doi.org/10.1093/ectj/utag006) | `SCSPILL` | [`sar` →](sar.qmd) |
+
+### `sar` — spillovers as a spatial process
+
+`sar` puts a spatial-autoregressive process on the donor outcomes themselves.
+The treated unit's outcome propagates into the donor pool through an exposure
+vector $\mathbf w$ you supply, the donors propagate to each other through a
+matrix $\mathbf W$ you supply, and a single scalar intensity $\rho$ —
+estimated, not assumed — scales the whole channel. Under a perfect
+pre-treatment fit with unconstrained weights $\boldsymbol\alpha$, both
+estimands are identified in closed form from
+$(\boldsymbol\alpha, \rho, \mathbf w, \mathbf W)$ alone; covariate
+coefficients, latent factors, and error variances cancel out. Inference is a
+two-step Bayesian sampler, so every quantity arrives with a posterior rather
+than an asymptotic approximation. At $\rho = 0$ the model collapses *exactly*
+to the Bayesian horseshoe synthetic control, so the no-spillover case is
+nested rather than assumed away.
+
+**Reach for it when** you can defend a spatial or network weighting a priori
+(contiguity, trade volumes, distance decay), you want the per-donor spillover
+as an object of interest rather than a nuisance, and you want honest
+uncertainty on a weakly identified intensity. **Look elsewhere when** you
+cannot motivate $(\mathbf w, \mathbf W)$, when only a handful of donors are
+exposed and dropping them is cheap, or when your pre-period is too short to
+pin $\rho$ down — $\rho$ is this model's weakly identified parameter, and no
+amount of sampling changes that.
+
+Full statement of the model, the identification theorem, the samplers, and the
+six documented departures from the authors' R replication package are on
+[the `sar` page](sar.qmd).
+
+## Planned {#planned}
+
+::: {.callout-warning}
+## Not implemented
+The three models below are candidates, not features. They are listed so the
+package's intended scope is legible and so the `method` names stay coherent —
+**none of them exists in scspill today**, and there is no release date.
+:::
+
+| Model | Reserved `method` | Reference | How it *would* identify the spillover |
+|---|---|---|---|
+| SCM with spillover effects | `"cd"` | Cao & Dowd, [arXiv:1902.07343](https://arxiv.org/abs/1902.07343) (2019, rev. 2026) | *Keep* the exposed donors and impose a researcher-specified spillover-structure matrix, linear in unknown parameters, recovering direct and per-unit spillover effects jointly. Comes with a misspecification test for the structure you assumed. |
+| Inclusive synthetic control | `"iscm"` | Di Stefano & Mellace, [arXiv:2403.17624](https://arxiv.org/abs/2403.17624) (2024) | *Keep* the exposed donors with no parametric spillover structure at all: build a synthetic control for every affected unit, then invert the system of their own cross-weights to de-contaminate the gaps. |
+| Partial-interference synthetic control group | `"grossi"` | Grossi, Mariani, Mattei, Lattarulo & Öner (2025), *JRSS-A* 188(1):223–240, [arXiv:2004.05027](https://arxiv.org/abs/2004.05027) | *Drop* the treated unit's whole cluster from the pool and rebuild from the far, clean clusters only. Cleanest identification when partial interference is defensible, at the cost of pre-treatment fit. |
+
+In one line each: `sar` models the leakage and estimates its intensity; `cd`
+keeps the contaminated donors and assumes a structure it can test; `iscm`
+keeps them and inverts the data's own cross-weights; `grossi` drops them and
+identifies off a cluster partition.
+
+## Relationship to mlsynth
+
+scspill's estimator architecture follows
+[mlsynth](https://github.com/jgreathouse9/mlsynth) — a pydantic config in, a
+standardized results object out — and the four models above are exactly the
+four its `SPILLSYNTH` dispatcher exposes as
+`method="sar" | "cd" | "iscm" | "grossi"`. The names here are deliberately
+identical, so moving between the two libraries is a rename rather than a
+rewrite. Where scspill goes further is depth: it carries the `sar` model's
+full appendix machinery — the Geweke joint distribution test, prior
+sensitivity grids, prior predictive checks, a Monte Carlo engine, and a
+benchmark suite pinned to the authors' frozen R results.
+
+## References
+
+- Sakaguchi, S., & Tagawa, H. (2026). *Identification and Bayesian Inference
+  for Synthetic Control Methods with Spillover Effects.* The Econometrics
+  Journal. <https://doi.org/10.1093/ectj/utag006>
+- Cao, J., & Dowd, C. (2019, rev. 2026). *Estimation and Inference for
+  Synthetic Control Methods with Spillover Effects.*
+  <https://arxiv.org/abs/1902.07343>
+- Di Stefano, R., & Mellace, G. (2024). *The Inclusive Synthetic Control
+  Method.* <https://arxiv.org/abs/2403.17624>
+- Grossi, G., Mariani, M., Mattei, A., Lattarulo, P., & Öner, Ö. (2025).
+  Direct and spillover effects of a new tramway line on the commercial
+  vitality of peripheral streets: a synthetic-control approach. *Journal of
+  the Royal Statistical Society Series A* 188(1):223–240.
+  <https://arxiv.org/abs/2004.05027>

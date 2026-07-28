@@ -11,7 +11,7 @@ from ...exceptions import ScspillConfigError
 
 
 class SCSPILLConfig(BaseEstimatorConfig):
-    """Configuration for the Bayesian spatial-spillover synthetic control (SCSPILL).
+    """Configuration for a spillover synthetic-control fit (today, model ``sar``).
 
     Implements:
 

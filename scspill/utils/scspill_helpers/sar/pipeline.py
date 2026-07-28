@@ -46,7 +46,7 @@ def run_scspill(
     seed: int | None = None,
     verbose: bool = False,
 ) -> SCSPILLFit:
-    """Fit the two-step Bayesian spatial-spillover synthetic control.
+    """Fit the ``sar`` model: two-step Bayesian inference for the SAR spillover SCM.
 
     Parameters mirror :class:`scspill.config_models.SCSPILLConfig`; see its
     docstring for the R argument mapping and the paper-correct defaults.

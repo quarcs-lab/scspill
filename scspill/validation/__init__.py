@@ -1,6 +1,6 @@
-"""Sampler validation and prior checking for SCSPILL.
+"""Sampler validation and prior checking for the ``sar`` model.
 
-The machinery of the paper's appendix, as user-facing functions:
+The machinery of that model's article appendix, as user-facing functions:
 
 * :func:`geweke_test` -- the Geweke (2004) joint distribution test of the
   Step-2 Gibbs/Metropolis sampler (marginal-conditional vs.

@@ -147,7 +147,7 @@ run long chains for publication numbers. The
 
 - [The Sudan case study](sudan.qmd): trade-network weights instead of
   contiguity, and spillovers measured in percent of GDP.
-- [The method article](articles/method.qmd): the identification result, the
+- [The `sar` model page](models/sar.qmd): the identification result, the
   samplers, and exactly where this implementation deliberately departs from
   the R replication package.
 - [The API reference](reference/index.qmd).

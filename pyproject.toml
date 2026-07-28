@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "scspill"
 version = "0.1.1"
-description = "Bayesian spatial-spillover synthetic control (Sakaguchi & Tagawa) for causal inference on panel data."
+description = "Synthetic control models with spillover effects: causal inference on panel data when the treatment reaches the donor pool."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -59,7 +59,7 @@ Homepage = "https://github.com/quarcs-lab/scspill"
 Documentation = "https://quarcs-lab.github.io/scspill/"
 Repository = "https://github.com/quarcs-lab/scspill"
 Issues = "https://github.com/quarcs-lab/scspill/issues"
-Paper = "https://doi.org/10.1093/ectj/utag006"
+"Paper (sar model)" = "https://doi.org/10.1093/ectj/utag006"
 
 [dependency-groups]
 dev = [
