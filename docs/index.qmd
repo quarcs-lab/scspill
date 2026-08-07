@@ -149,22 +149,21 @@ architecture it shares.
 
 ## Citing
 
-Please cite both the software and the article it implements:
+If you use scspill, please cite it as:
 
-> Mendez, C. (2026). *Synthetic Control Models with Spillovers in Python*
-> (version 0.2.1). <https://github.com/quarcs-lab/scspill>
+> Mendez, C., Sakaguchi, S., & Tagawa, H. (2026). *Synthetic Control Models
+> with Spillovers in Python* (version 0.2.1).
+> <https://github.com/quarcs-lab/scspill>
 
-> Sakaguchi, S., & Tagawa, H. (2026). Identification and Bayesian Inference
-> for Synthetic Control Methods with Spillover Effects. *The Econometrics
-> Journal*. <https://doi.org/10.1093/ectj/utag006>
+Authors: [Carlos Mendez](https://carlos-mendez.org) ·
+[Shosei Sakaguchi](https://sites.google.com/view/shoseisakaguchi/home) ·
+[Hayato Tagawa](https://hayataga.github.io/HayaTaga/)
 
 `CITATION.cff` in the repository carries the same metadata in
 machine-readable form.
 
 ## Acknowledgement
 
-The `sar` model and its original R/C++ implementation are the work of Shosei
-Sakaguchi and Hayato Tagawa; please cite their article whenever you fit that
-model. The Python package — an independent port with paper-correct defaults —
-is written and maintained by Carlos Mendez at the
-[QuaRCS lab](https://quarcs-lab.org).
+The `sar` model is cross-validated against the MIT-licensed [replication
+package](https://doi.org/10.5281/zenodo.19066186) for the article it
+implements. scspill is developed at the [QuaRCS lab](https://quarcs-lab.org).

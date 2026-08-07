@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use scspill, please cite the software and, for the model you fit, the methodological article listed under references."
+message: "If you use scspill, please cite it as below."
 title: "Synthetic Control Models with Spillovers in Python"
 abstract: "scspill is a Python package of synthetic control models that relax SUTVA: estimators that let a treatment reach the donor pool, recovering both the effect on the treated unit and the spillover effect received by every control unit. It currently implements one model, the Bayesian spatial-autoregressive method of Sakaguchi and Tagawa (method='sar'), which routes spillovers through user-supplied spatial weights scaled by a single estimated intensity and returns full posterior uncertainty for both estimands. Further spillover-aware models are planned behind the same interface."
 type: software
@@ -8,6 +8,15 @@ authors:
     given-names: Carlos
     email: carlosmendez777@gmail.com
     affiliation: "QuaRCS Lab"
+    website: "https://carlos-mendez.org"
+  - family-names: Sakaguchi
+    given-names: Shosei
+    affiliation: "Faculty of Economics, University of Tokyo"
+    website: "https://sites.google.com/view/shoseisakaguchi/home"
+  - family-names: Tagawa
+    given-names: Hayato
+    affiliation: "Graduate School of Economics, University of Tokyo"
+    website: "https://hayataga.github.io/HayaTaga/"
 contact:
   - family-names: Mendez
     given-names: Carlos
@@ -25,27 +34,3 @@ keywords:
   - spatial econometrics
   - causal inference
   - panel data
-references:
-  - type: article
-    title: "Identification and Bayesian Inference for Synthetic Control Methods with Spillover Effects"
-    authors:
-      - family-names: Sakaguchi
-        given-names: Shosei
-      - family-names: Tagawa
-        given-names: Hayato
-    journal: "The Econometrics Journal"
-    year: 2026
-    doi: "10.1093/ectj/utag006"
-    url: "https://doi.org/10.1093/ectj/utag006"
-  - type: software
-    title: "Replication package for 'Identification and Bayesian Inference for Synthetic Control Methods with Spillover Effects'"
-    authors:
-      - family-names: Sakaguchi
-        given-names: Shosei
-      - family-names: Tagawa
-        given-names: Hayato
-    year: 2026
-    doi: "10.5281/zenodo.19066186"
-    url: "https://zenodo.org/records/19066186"
-    license: MIT
-    notes: "The R and C++ implementation that scspill ports."

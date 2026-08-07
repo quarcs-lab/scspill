@@ -10,7 +10,15 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Carlos Mendez", email = "carlosmendez777@gmail.com" }]
+# Names only, no emails: PEP 621 routes authors that carry an email into
+# Author-email and the rest into Author, which would split the three across two
+# metadata fields. `maintainers` below carries the contact address instead.
+authors = [
+    { name = "Carlos Mendez" },
+    { name = "Shosei Sakaguchi" },
+    { name = "Hayato Tagawa" },
+]
+maintainers = [{ name = "Carlos Mendez", email = "carlosmendez777@gmail.com" }]
 keywords = [
     "synthetic control",
     "spillover effects",

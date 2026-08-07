@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+Authorship and citation metadata only; no functional change.
+
+- **The software has three authors and one citation.** Shosei Sakaguchi and
+  Hayato Tagawa have joined the project as co-authors, so `CITATION.cff`, the
+  package metadata and `LICENSE` now list Carlos Mendez, Shosei Sakaguchi and
+  Hayato Tagawa. This supersedes the v0.2.1 decision below, which made Carlos
+  Mendez the sole author.
+- **The "Citing" sections ask for a single reference**, the software itself:
+  Mendez, C., Sakaguchi, S., & Tagawa, H. (2026). *Synthetic Control Models
+  with Spillovers in Python*. The article and replication-package entries have
+  been removed from `references` in `CITATION.cff`, which now describes only
+  the software.
+- **The methodological article is still cited where it is a reference** — the
+  models table, the bibliographies under `docs/models/`, the estimator
+  docstrings, and the `Paper (sar model)` project URL. `docs/models/sar.qmd`
+  now says outright that `sar` implements Sakaguchi and Tagawa's method.
+
 ## v0.2.1 (2026-07-28)
 
 Authorship metadata only; no functional change.

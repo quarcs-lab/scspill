@@ -144,6 +144,9 @@ entering correctly, $\hat\rho$ moves to roughly $0.35$. The benchmark suite
 
 ## References
 
+The `sar` model implements the method developed by Shosei Sakaguchi and Hayato
+Tagawa in the first reference below.
+
 - Sakaguchi, S., & Tagawa, H. (2026). *Identification and Bayesian Inference
   for Synthetic Control Methods with Spillover Effects.* The Econometrics
   Journal. <https://doi.org/10.1093/ectj/utag006>
