@@ -164,6 +164,11 @@ machine-readable form.
 
 ## Acknowledgement
 
-The `sar` model is cross-validated against the MIT-licensed [replication
+The library's design, syntax, and infrastructure are based on Jared
+Greathouse's [mlsynth](https://github.com/jgreathouse9/mlsynth), a larger and
+more comprehensive package of synthetic control methods. The documentation
+stack follows [geometrics](https://github.com/quarcs-lab/geometrics), from the
+[QuaRCS lab](https://quarcs.netlify.app/), where scspill is developed. The
+`sar` model is cross-validated against the MIT-licensed [replication
 package](https://doi.org/10.5281/zenodo.19066186) for the article it
-implements. scspill is developed at the [QuaRCS lab](https://quarcs-lab.org).
+implements.
