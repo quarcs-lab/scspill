@@ -65,7 +65,7 @@ class CDConfig(BaseEstimatorConfig):
         ),
     )
     ci: float = Field(default=0.95, gt=0, lt=1)
-    scm_maxiter: int = Field(default=900, ge=1)
+    scm_maxiter: int = Field(default=3000, ge=1)
     scm_ftol: float = Field(default=1e-12, gt=0)
 
 
@@ -315,7 +315,7 @@ def _scm_all(y_pre: np.ndarray, *, maxiter: int, ftol: float) -> tuple[np.ndarra
             constraints=[
                 {"type": "eq", "fun": lambda b: b.sum() - 1, "jac": lambda b: np.ones(n - 1)}
             ],
-            options={"maxiter": max(3000, maxiter), "ftol": ftol},
+            options={"maxiter": maxiter, "ftol": ftol},
         )
         weights = np.clip(fit.x, 0, None)
         if (

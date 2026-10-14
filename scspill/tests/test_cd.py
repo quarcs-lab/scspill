@@ -19,7 +19,7 @@ def test_scm_is_optimal_with_tiny_maxiter_and_falls_back_to_fista(monkeypatch):
     y = rng.normal(size=(4, 12))
     y[0] = 0.85 * y[1] + 0.15 * y[2] + 0.02 * rng.normal(size=12)
     short_intercepts, short_weights = _scm_all(y, maxiter=1, ftol=1e-12)
-    regular_intercepts, regular_weights = _scm_all(y, maxiter=900, ftol=1e-12)
+    regular_intercepts, regular_weights = _scm_all(y, maxiter=3000, ftol=1e-12)
     short_loss = np.sum((y[0] - short_intercepts[0] - short_weights[0] @ y) ** 2)
     regular_loss = np.sum((y[0] - regular_intercepts[0] - regular_weights[0] @ y) ** 2)
     assert short_loss <= regular_loss + 1e-5
@@ -31,7 +31,7 @@ def test_scm_is_optimal_with_tiny_maxiter_and_falls_back_to_fista(monkeypatch):
         return OptimizeResult(x=np.full_like(x0, np.nan), success=False)
 
     monkeypatch.setattr("scspill.utils.scspill_helpers.cd.minimize", failing)
-    fb_intercepts, fb_weights = _scm_all(y, maxiter=900, ftol=1e-12)
+    fb_intercepts, fb_weights = _scm_all(y, maxiter=3000, ftol=1e-12)
     fb_loss = np.sum((y[0] - fb_intercepts[0] - fb_weights[0] @ y) ** 2)
     assert fb_loss <= regular_loss + 1e-4
     assert fb_weights[0].sum() == pytest.approx(1)
