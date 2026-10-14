@@ -1,18 +1,20 @@
 """Bundled case-study spillover panels for scspill.
 
 Ships the two empirical applications of the ``sar`` model's source article
-(Sakaguchi & Tagawa 2026) inside the wheel, each as a long panel plus its
-spatial-weight specification. Nothing about them is model-specific: they are
-ordinary spillover panels and will serve any model added later.
+(Sakaguchi & Tagawa 2026), plus Cao and Dowd's 51/41-unit California panel.
+The latter has a different sample and intervention date from the SAR
+California example.
 
 * :func:`load_california` -- the California Proposition 99 tobacco panel
   (Abadie, Diamond & Hainmueller 2010): 39 states, 1970-2000, treatment in
   1988; rook-contiguity spatial weights.
 * :func:`load_sudan` -- the 2011 Sudan secession panel: 34 African countries,
   2000-2015, treatment in 2011; average bilateral-trade spatial weights.
+* :func:`load_california_cd` -- the Cao--Dowd Proposition 99 panel: 51 or
+  41 regions, 1970-2000, treatment from 1989; labeled affected-unit set.
 
-The CSV files are verbatim copies of the replication package's nonproprietary
-data exports. Both weight objects are stored raw (unnormalized) --
+The SAR CSV files are verbatim copies of that replication package's
+nonproprietary data exports. Both SAR weight objects are stored raw --
 row-normalization of ``W`` and sum-normalization of ``w`` happen inside the
 estimator, exactly as in the R package.
 """
@@ -27,7 +29,53 @@ import pandas as pd
 
 from ..exceptions import ScspillDataError
 
-__all__ = ["SpillPanel", "load_california", "load_sudan"]
+__all__ = ["CDPanel", "SpillPanel", "load_california", "load_california_cd", "load_sudan"]
+
+
+@dataclass(frozen=True)
+class CDPanel:
+    """Cao--Dowd Proposition 99 panel and published exposure structure."""
+
+    df: pd.DataFrame
+    affected_units: tuple[str, ...]
+    specification: int
+
+    def config_kwargs(self) -> dict[str, Any]:
+        """Return inputs for ``SCSPILL({"method": "cd", ...})``."""
+        return {
+            "method": "cd",
+            "df": self.df,
+            "outcome": "cigs",
+            "treat": "treated",
+            "unitid": "state",
+            "time": "year",
+            "affected_units": list(self.affected_units),
+        }
+
+
+def load_california_cd(specification: int = 51) -> CDPanel:
+    """Load the authors' 1970--2000 Proposition 99 panel, treated from 1989.
+
+    ``51`` uses every state and DC with the 12 policy-contaminated states and
+    three neighbors as exposed units. ``41`` removes ten non-neighbor policy
+    states, leaving Arizona, Nevada and Oregon as exposed controls.
+    """
+    if specification not in (41, 51):
+        raise ScspillDataError("Cao--Dowd California specification must be 41 or 51.")
+    root = files("scspill.data").joinpath("files", "cao_dowd")
+    with root.joinpath("cigs_consumption.csv").open("r", encoding="utf-8") as fh:
+        df = pd.read_csv(fh)
+    with root.joinpath("state_list.csv").open("r", encoding="utf-8-sig") as fh:
+        flags = pd.read_csv(fh)
+    policy = set(flags.loc[flags["missing12"] == 1, "state"])
+    neighbors = set(flags.loc[flags["neighbor"] == 1, "state"])
+    if specification == 41:
+        df = df.loc[~df["state"].isin(policy - neighbors)].copy()
+        affected = tuple(sorted(neighbors))
+    else:
+        affected = tuple(sorted(policy | neighbors))
+    df["treated"] = ((df["state"] == "CA") & (df["year"] >= 1989)).astype(int)
+    return CDPanel(df=df, affected_units=affected, specification=specification)
 
 
 #: Mapping from the R-mangled WDI column headers in ``sudan_panel.csv`` to the

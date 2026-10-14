@@ -87,7 +87,7 @@ exclude = ["scspill.tests*"]
 
 [tool.setuptools.package-data]
 scspill = ["py.typed"]
-"scspill.data" = ["files/*.csv"]
+"scspill.data" = ["files/*.csv", "files/cao_dowd/*.csv"]
 
 # ---------------------------------------------------------------------------
 # Tooling

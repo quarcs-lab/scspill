@@ -1,0 +1,2 @@
+# Preserve the authors' BOM and CRLF in the frozen state-list input.
+scspill/data/files/cao_dowd/state_list.csv whitespace=cr-at-eol
