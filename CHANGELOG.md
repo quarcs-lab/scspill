@@ -2,7 +2,29 @@
 
 ## Unreleased
 
-Authorship and citation metadata only; no functional change.
+### New model: `cd` (Cao & Dowd)
+
+- **`method="cd"` implements Cao and Dowd (arXiv:1902.07343v4)**: an
+  intercept-adjusted simplex SCM for every unit, a fixed exposure structure
+  given by `affected_units` or a labeled `effect_matrix`, period-specific
+  direct and spillover effects, Andrews-type P tests for `C α_t = d`, and the
+  `κ_A` specification test. `load_california_cd(51)` and
+  `load_california_cd(41)` bundle the authors' 50-state-plus-DC panel.
+- **The defaults follow the authors' Proposition 99 replication code**, so a
+  default fit reproduces the paper's Section 6 tables and Figure 4:
+  interpolated critical values (`quantile_method="linear"`) and intervals
+  that add the signed pre-treatment error quantiles to the estimate
+  (`ci_method="published"`, returned by `effect_ci`). The paper's Section 4
+  definitions are available as `quantile_method="empirical"`,
+  `ci_method="inversion"` and `reference_mode="leave_one_period_out"`; the
+  differences are listed under Caveats in `docs/models/cd.qmd`.
+- `scspill/tests/test_cd.py` checks the 51- and 41-unit fits against the
+  authors' frozen output (`jcao0/synthetic-control-spillover`, commit
+  `86004020`), stored in `benchmarks/reference/cao_dowd/`.
+
+### Authorship and citation
+
+No functional change.
 
 - **The software has three authors and one citation.** Shosei Sakaguchi and
   Hayato Tagawa have joined the project as co-authors, so `CITATION.cff`, the

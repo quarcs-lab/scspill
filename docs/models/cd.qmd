@@ -1,0 +1,152 @@
+---
+title: "`cd` — Cao–Dowd synthetic control with spillovers"
+subtitle: "Single treated unit, fixed exposure structure, and end-of-sample inference"
+---
+
+`method="cd"` implements [Cao and Dowd, v4](https://arxiv.org/html/1902.07343v4).
+It fits an intercept and simplex synthetic-control weights for **every** unit
+using pre-treatment outcomes. The researcher supplies a set of potentially
+exposed units or a labeled, fixed structure matrix $A$. The model permits a
+different direct and spillover effect in each post-treatment period.
+
+## Fit
+
+```python
+from scspill import SCSPILL
+from scspill.data import load_california_cd
+
+panel = load_california_cd(51)  # 50 states + DC; 1970–2000; post starts 1989
+result = SCSPILL({**panel.config_kwargs(), "display_graphs": False}).fit()
+result.effects_panel.loc[1990, ["CA", "NV"]]
+result.effect_ci["CA"].loc[1990]
+```
+
+The existing `load_california()` is a different 39-state, 1988-onward case
+study and does not reproduce this paper. `load_california_cd(41)` supplies
+the paper's reduced specification.
+
+For a custom panel, pass `df`, `outcome`, `treat`, `unitid`, `time`, and either
+`affected_units` or a pandas `effect_matrix`. The treatment flag is 1 only
+for the single treated unit from the first post period onward. The
+`effect_matrix` rows must cover every unit by label and include one column
+equal to the treated-unit indicator. Other columns may encode shared or
+heterogeneous spillovers. All columns of $(I-\widehat B)A$ must be linearly
+independent; the fit raises an identification error otherwise.
+
+Writing $R=I-\widehat B$, the period-specific effect is
+
+$$
+\widehat\alpha_t=A[(RA)'(RA)]^{-1}(RA)'(RY_t-\widehat a).
+$$
+
+## Inference
+
+The defaults follow the authors' Proposition 99 replication code, so a
+default fit reproduces the paper's Section 6 tables and Figure 4. The
+departures that convention makes from the paper's own Section 4 definitions
+are listed under [Caveats](#caveats).
+
+`result.test_hypothesis(C, d=0, period=1990)` tests a general linear
+restriction $C\alpha_t=d$ by the squared P statistic. `C` can be a labeled
+DataFrame or a matrix in `result.unit_labels` order. Identity and inverse
+projected second-moment weights are available. Set
+`reference_mode="leave_one_period_out"` to refit all SCM equations for each
+held-out pre-treatment period; `"full"` matches the application code and is
+the default.
+
+`result.effect_ci[unit]` is the pointwise interval selected by `ci_method`.
+Both versions are always stored: `published_ci` (the default, as in the
+paper's tables) and `pointwise_ci` (the inverse of the squared P test).
+`pointwise_p_values` holds the period-wise P values, and
+`kappa_test[period]` checks the assumed structure $A$ period by period
+(Section 5.1.2). `att` is the arithmetic mean of the post-period direct
+estimates; no ATT confidence interval is implied by the pointwise intervals.
+
+## Caveats {#caveats}
+
+The paper's empirical results and its stated procedure differ in three
+places. `cd` follows the empirical results by default; each difference has a
+switch.
+
+| # | Paper, Section 4 | Authors' application code (default) | Switch |
+|---|---|---|---|
+| 1 | Critical value $\inf\{x:\widehat F(x)\ge 1-\tau\}$, the left inverse of the empirical CDF | NumPy's linearly interpolated quantile | `quantile_method="empirical"` |
+| 2 | Intervals by inverting the squared P test, which makes them symmetric about $\widehat\alpha$ | $\widehat\alpha + [q_{\tau/2},\, q_{1-\tau/2}]$ of the signed pre-treatment errors $e_i'\widehat G\widehat u_t$ | `ci_method="inversion"` |
+| 3 | Leave-one-period-out references recommended for finite samples | Full-sample references | `reference_mode="leave_one_period_out"` |
+
+What each one changes in practice:
+
+1. With only 19 pre-treatment periods the two rules pick different order
+   statistics. The paper's 95% critical value is
+   $\lceil 0.95 \times 19 \rceil = 19$th, the largest reference statistic,
+   so it rejects only when the post-treatment statistic exceeds all 19. The
+   interpolated quantile sits at position 18.1, just above the second
+   largest. In the 51-unit application the joint test for any spillover
+   rejects in 1990–1992 and 1994–2000 under the default, as in Figure 4. In
+   1994 and 1995 the statistic (1745.8 and 1725.3) lies between the
+   interpolated cut-off (1482.8) and the largest reference value (1828.9),
+   so the paper's definition does not reject, and the paper's own P value,
+   $\#\{\widehat P_t \ge P\}/19 = 0.053$, is above 0.05.
+2. Since $\widehat\alpha-\alpha\approx Gu_{T+1}$, a percentile interval for
+   $\alpha$ subtracts the quantiles, $[\widehat\alpha-q_{1-\tau/2},\,
+   \widehat\alpha-q_{\tau/2}]$. The published interval adds them, which
+   agrees with that only when the error distribution is symmetric; for
+   California in 1989 it gives $[-3.87, 3.27]$ where the subtracting form
+   gives $[-3.11, 4.04]$. In the authors' repository the Proposition 99
+   code (`run_spec.py` computes the quantiles, `make_figures.py` plots
+   `te + lo` to `te + hi`) adds, while their continuous-treatment
+   application (`continuous_treatment.m`) subtracts.
+3. Leave-one-out references widen the intervals substantially in the
+   California application; for California itself the range of the
+   reference errors more than doubles.
+
+The authors' own studies are not uniform either: their Monte Carlo size and
+power studies and the $\kappa_A$ study use the left-inverse critical value
+(`quantile_method="empirical"`), and the repository's README notes that its
+confidence intervals were checked against the original MATLAB output only
+for the point estimates.
+
+## Reproducing the paper
+
+The bundled panel is the input of the [authors' replication
+package](https://github.com/jcao0/synthetic-control-spillover) at commit
+`86004020`. A default fit reproduces Section 6:
+
+```python
+import numpy as np
+import pandas as pd
+from scspill import SCSPILL
+from scspill.data import load_california_cd
+
+fit = SCSPILL({**load_california_cd(51).config_kwargs(), "display_graphs": False}).fit()
+
+# Table S.6: estimate, 95% interval and P value for CA (direct) and NV, AZ, OR
+table_s6 = pd.concat(
+    {
+        unit: fit.effect_ci[unit].assign(
+            estimate=fit.effects_panel[unit], p_value=fit.pointwise_p_values[unit]
+        )
+        for unit in ["CA", "NV", "AZ", "OR"]
+    },
+    axis=1,
+).round(2)
+
+# Figure 4b shading: years in which "no spillover anywhere" is rejected
+no_spill = np.eye(len(fit.unit_labels))[1:]
+[t for t in fit.effects_panel.index if fit.test_hypothesis(no_spill, period=t).reject]
+
+# Table S.8: California's synthetic-control weights and intercept
+fit.scm_matrix.loc["CA"].nlargest(10), fit.intercepts["CA"]
+```
+
+`load_california_cd(41)` gives the robustness specification of Table S.7.
+`scspill/tests/test_cd.py` checks both fits against the authors' saved
+output: P values match exactly, and effects agree to within 0.01 packs.
+The remaining gap is the simplex solver. With the authors' settings, SciPy's
+SLSQP stops short of the optimum for every unit of the 51-unit panel; `cd`
+uses scaled objectives with analytic gradients and reaches an objective at
+or below theirs for every unit, so a few published two-decimal values
+differ in the last digit.
+
+Multiple treated units, covariates, time-varying $A$, and alternative
+estimators are outside this implementation.

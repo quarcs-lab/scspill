@@ -51,6 +51,11 @@ result.diagnostics()    # DataFrame: mean/sd/quantiles/ESS/R-hat per chain
 result.plot(kind="panel")   # counterfactual | effect | top spillovers
 ```
 
+For Cao–Dowd, pass `load_california_cd(51).config_kwargs()` to `SCSPILL`;
+the `CDResults` it returns has `effects_panel`, `effect_ci`,
+`pointwise_p_values`, `test_hypothesis` and `kappa_test`. See the
+[`cd` model page](models/cd.qmd).
+
 ## Rules of thumb for agents
 
 - The treated unit and the treatment date are inferred from the `treat`
@@ -65,7 +70,7 @@ result.plot(kind="panel")   # counterfactual | effect | top spillovers
   `ScspillPlottingError` — all subclass `ScspillError`.
 - Sampler validation lives in `scspill.validation` (`geweke_test`,
   `prior_sensitivity`, `prior_predictive`); Monte Carlo tooling in
-  `scspill.simulate`; the two case studies in `scspill.data`.
+  `scspill.simulate`; bundled panels in `scspill.data`.
 - The estimator's architecture mirrors
   [mlsynth](https://github.com/jgreathouse9/mlsynth) (pydantic config in,
   standardized results object out), so mlsynth patterns transfer.
