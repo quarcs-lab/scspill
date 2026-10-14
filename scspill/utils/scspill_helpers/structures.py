@@ -289,7 +289,7 @@ class SCSPILLResults(BaseEstimatorResults):
     :attr:`method` records which spillover model produced the fit. It mirrors
     ``SCSPILLConfig.method`` and the suffix of
     ``method_details.method_name`` (``"SCSPILL/<method>"``). Only ``"sar"``
-    exists today; a model added later declares its own posterior blocks
+    uses this result; another model declares its own estimation blocks
     alongside :attr:`alpha_posterior` / :attr:`sar_posterior`, which are
     SAR-specific, while :attr:`inputs`, :attr:`effects_detail` and the flat
     effect surface are the cross-model contract.
