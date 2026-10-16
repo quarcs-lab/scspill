@@ -1,2 +1,3 @@
-# Preserve the authors' BOM and CRLF in the frozen state-list input.
-scspill/data/files/cao_dowd/state_list.csv whitespace=cr-at-eol
+# Keep the authors' state list byte-identical (UTF-8 BOM and CRLF): no
+# end-of-line normalization on checkout or commit.
+scspill/data/files/cao_dowd/state_list.csv -text
