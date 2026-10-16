@@ -3,21 +3,21 @@ title: "The bundled datasets"
 subtitle: "Provenance and dictionaries for the SAR and Cao–Dowd case studies"
 ---
 
-Both of the SAR paper's empirical applications ship inside the wheel as plain
-CSVs (about 150 kB total), copied verbatim from the replication package's
-nonproprietary export. Each loader returns a `SpillPanel` — the long panel
-with a 0/1 `treated` column, the raw spatial weights aligned by donor label,
-and a `config_kwargs()` helper that feeds `SCSPILLConfig` directly. The
-weights are stored *unnormalized*; the estimator row-normalizes `spatial_W`
-and scales `spatial_w` to sum to one, exactly as the R package does.
+Three panels ship inside the wheel as plain CSVs:
 
-## Cao–Dowd Proposition 99
+- the `sar` paper's two empirical applications, copied verbatim from its
+  replication package's nonproprietary export;
+- the `cd` paper's Proposition 99 panel, copied from the authors' repository.
 
-`load_california_cd(51)` and `load_california_cd(41)` load a separate
-51-region panel (50 states and DC, 1970–2000, treatment from 1989) taken
-from the authors' [replication repository](https://github.com/jcao0/synthetic-control-spillover).
-It is not interchangeable with `load_california()`; see the
-[`cd` model page](../models/cd.qmd).
+Every loader returns a `SpillPanel`: the long panel with a 0/1 `treated`
+column, what its models need, and a `config_kwargs()` helper that feeds
+`SCSPILLConfig` directly. For `sar` panels, what the models need is the raw
+spatial weights aligned by donor label. For the `cd` panel, it is the
+paper's exposed states. `config_kwargs()` configures `sar` when the panel
+has spatial weights and `cd` otherwise; pass `method=` to choose. The
+spatial weights are stored *unnormalized*. The estimator row-normalizes
+`spatial_W` and scales `spatial_w` to sum to one, exactly as the R package
+does.
 
 ## California Proposition 99
 
@@ -75,16 +75,49 @@ original headers:
 sd.column_map
 ```
 
+## Cao & Dowd's Proposition 99 panel
+
+```{python}
+from scspill.data import load_california_cd
+
+cdp = load_california_cd(51)
+cdp.df.head(3)
+```
+
+```{python}
+cdp.affected_units, load_california_cd(41).affected_units
+```
+
+| Field | Value |
+|---|---|
+| Units | 50 U.S. states plus DC (`load_california_cd(51)`), or 41 of them (`load_california_cd(41)`) |
+| Periods | 1970–2000 (annual); California treated from 1989 |
+| Outcome | `cigs` — per-capita cigarette consumption (packs) |
+| `affected_units` | 51 units: the twelve states that passed their own tobacco-control laws (including Arizona and Oregon) plus Nevada; 41 units: Arizona, Nevada and Oregon |
+| Spatial weights | none — `config_kwargs()` configures `method="cd"` |
+
+The 41-unit panel drops the ten policy states that do not border
+California. Provenance: the input data of
+[jcao0/synthetic-control-spillover](https://github.com/jcao0/synthetic-control-spillover)
+at commit `86004020`, copied byte for byte (`cigs_consumption.csv` and
+`state_list.csv`). It is a different sample from `load_california()`: it
+keeps all 50 states and DC, and its treatment starts in 1989, not 1988. The
+[case study](../prop99-spillovers.qmd) fits it.
+
 ## Using your own data
 
-Any long panel works. You need:
+Any long panel works. Every model needs a DataFrame with unit, time,
+outcome, and 0/1 treatment-indicator columns (1 for the treated unit in
+post-treatment periods). Then:
 
-1. a DataFrame with unit, time, outcome, and 0/1 treatment-indicator
-   columns (1 for the treated unit in post-treatment periods);
-2. `spatial_w`: a Series/dict keyed by donor label (or an array in sorted
-   donor order) measuring each donor's exposure to the treated unit;
-3. `spatial_W`: a labelled DataFrame (or array) of donor-to-donor weights;
-4. optionally, covariate columns.
+- for `sar`:
+  1. `spatial_w`: a Series/dict keyed by donor label (or an array in sorted
+     donor order) measuring each donor's exposure to the treated unit;
+  2. `spatial_W`: a labelled DataFrame (or array) of donor-to-donor weights;
+  3. optionally, covariate columns.
+- for `cd`: the exposed units (`affected_units`), distances
+  (`unit_distances`) or a labeled exposure matrix (`effect_matrix`). Several
+  treated units are allowed if they share the treatment start.
 
 Alignment is by label wherever labels are given, so the order of your
 weights never has to match the panel's — mismatched or missing donor labels

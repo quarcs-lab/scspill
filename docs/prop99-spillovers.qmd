@@ -1,0 +1,275 @@
+---
+title: "Case study: Proposition 99 with a known spillover structure"
+subtitle: "Cao & Dowd's `cd` model on 50 states plus DC, set beside `sar`"
+---
+
+```{=html}
+<div class="try-banner">
+  <span>Run this walkthrough yourself:</span>
+  <a class="xpd-btn xpd-btn--colab" href="https://colab.research.google.com/github/quarcs-lab/scspill/blob/main/notebooks/prop99_spillovers.ipynb" target="_blank" rel="noopener">▶ Open in Colab</a>
+</div>
+```
+
+California's 1989 tobacco program can reach other states in two ways.
+Smokers can cross into Arizona, Nevada or Oregon to buy cheaper
+cigarettes, which is *leakage*. And twelve states passed tobacco-control
+laws of their own in the following years, which is *policy contamination*.
+Abadie, Diamond and Hainmueller dropped the twelve from the donor pool.
+Cao and Dowd keep every state and let the exposed ones carry their own
+effects instead.
+
+This page fits that design with the [`cd` model](models/cd.qmd), reads the
+direct effect and the spillovers, and tests both the spillovers and the
+assumed structure. It then sets the result beside the
+[`sar` model](models/sar.qmd) fitted to the classic California panel. No
+MCMC runs for `cd`; the `sar` comparison at the end uses a tutorial-scale
+chain.
+
+## Load the data
+
+`load_california_cd(51)` returns the authors' panel: per-capita cigarette
+consumption for the 50 states and DC, 1970–2000, with California treated
+from 1989. Its `affected_units` are the paper's exposed states: the twelve
+with their own policies, plus Nevada, so all three neighbours are included.
+
+```{python}
+from scspill.data import load_california_cd
+
+panel = load_california_cd(51)
+panel.df.head(3)
+```
+
+```{python}
+panel.affected_units
+```
+
+## Fit
+
+```{python}
+from scspill import SCSPILL
+
+result = SCSPILL({**panel.config_kwargs(), "display_graphs": False}).fit()
+print(f"Average effect on California, 1989-2000: {result.att:.1f} packs per capita")
+print(f"The same from California's own synthetic control: {result.att_scm:.1f}")
+```
+
+The defaults are the paper's Section 4 definitions: intervals by inverting
+the P test, and left-inverse critical values. The `cd` fit has one SCM
+equation per unit, so every state, not just California, has a synthetic
+control.
+
+```{python}
+#| fig-cap: "California against its synthetic control, with the 95% interval of the direct effect after 1989."
+result.plot(kind="full", display=False);
+```
+
+## The direct effect
+
+```{python}
+ca = result.effect_ci["CA"].assign(
+    estimate=result.effects_panel["CA"], p_value=result.pointwise_p_values["CA"]
+)
+ca.round(2)
+```
+
+The effect is indistinguishable from zero in the first years. With 19
+pre-treatment years the smallest attainable P value is $1/19 \approx 0.053$,
+so the 1990–1992 estimates sit just short of the 5% threshold. From 1993 the
+effect is significant and keeps growing. The paper reads the slow start as
+consistent with addiction: consumption adjusts gradually to the tax.
+
+## The spillovers
+
+```{python}
+#| fig-cap: "Direct effect on California and the spillover on every exposed state, with 95% intervals."
+result.plot(kind="spillover", display=False);
+```
+
+Nevada is the cleanest read: it had no tobacco law of its own in the 1990s,
+so its spillover is leakage rather than contamination.
+
+```{python}
+nv = result.effect_ci["NV"].assign(
+    estimate=result.effects_panel["NV"], p_value=result.pointwise_p_values["NV"]
+)
+nv.round(2).head(6)
+```
+
+Nevada's consumption rises by roughly 15 and 27 packs per capita in the
+first two years, and the effect then fades. That is what cross-border buying
+predicts: smokers adapt, and later tax increases elsewhere narrow the price
+gap.
+
+**Is there any spillover at all?** Test that every exposed state's effect is
+zero, year by year:
+
+```{python}
+import numpy as np
+import pandas as pd
+
+no_spillover = np.eye(len(result.unit_labels))[1:]  # every unit except California
+pd.DataFrame(
+    {
+        t: {
+            "statistic": result.test_hypothesis(no_spillover, period=t).statistic,
+            "p_value": result.test_hypothesis(no_spillover, period=t).p_value,
+            "reject": result.test_hypothesis(no_spillover, period=t).reject,
+        }
+        for t in result.effects_panel.index
+    }
+).T.round(3)
+```
+
+## Is the structure right?
+
+Everything above assumes the 13 exposed states are the only ones affected.
+The $\kappa_A$ test checks that: the part of each post-treatment residual
+that the structure cannot explain should look like the pre-treatment
+residuals.
+
+```{python}
+#| fig-cap: "The kappa_A structure test by year against its 95% critical value."
+result.plot(kind="kappa", display=False);
+```
+
+It rejects in every year after 1989. This is a real warning. Something
+moved after 1989 that the 13-state structure does not capture: national
+anti-smoking trends, other states' policies, or spillovers on states assumed
+clean. Comparing candidate structures on the same fit shows that the paper's
+choice still fits best among the obvious alternatives. A structure that nests
+another always fits at least as well, so this ranks the alternatives rather
+than validating the choice.
+
+```{python}
+choice = result.select_structure_by_kappa(
+    {
+        "paper (13 states, per unit)": {"affected_units": list(panel.affected_units)},
+        "13 states, one shared spillover": {
+            "spillover_structure": "homogeneous",
+            "affected_units": list(panel.affected_units),
+        },
+        "neighbours only": {"affected_units": ["AZ", "NV", "OR"]},
+        "no spillovers": {"affected_units": []},
+    }
+)
+choice.statistics.round(1).sort_values()
+```
+
+## How much could a missed spillover matter?
+
+If $p$ of the states assumed clean received spillovers of at most
+$\bar\alpha$, the bias of California's effect is bounded linearly in
+$\bar\alpha$ (Section 5.2.2 of the paper). The spillover-aware estimator's
+bound grows far more slowly than that of a synthetic control built only from
+the clean states:
+
+```{python}
+#| fig-cap: "Worst-case bias of California's effect under p = 1, 2 missed spillovers."
+result.plot(kind="sensitivity", display=False);
+```
+
+```{python}
+sens = result.cd.sensitivity
+largest = result.effects_panel["CA"].max()
+for p in (1, 2):
+    c_sp, c_pd = sens.coefficients(p)
+    print(
+        f"p = {p}: a missed spillover of {largest / c_sp:.2f} packs could account for "
+        f"California's largest estimate ({largest:.2f}); "
+        f"{largest / c_pd:.2f} for the pure-donor SCM."
+    )
+```
+
+These are the break-even points the paper highlights in its Figure 3: 17.07
+for one missed state and 9.66 for two.
+
+## The 41-state specification
+
+The authors' repository also drops the ten policy states that do not border
+California, leaving Arizona, Nevada and Oregon as the only exposed controls:
+
+```{python}
+r41 = SCSPILL({**load_california_cd(41).config_kwargs(), "display_graphs": False}).fit()
+pd.DataFrame(
+    {"51 states": result.effects_panel["CA"], "41 states": r41.effects_panel["CA"]}
+).round(2).T
+```
+
+## `cd` and `sar`, side by side
+
+The [Get started](get-started.qmd) page fits `sar` to the classic panel.
+The two analyses differ in more than the model, so read the comparison
+with care:
+
+| | `cd` (this page) | `sar` (Get started) |
+|---|---|---|
+| Panel | Cao & Dowd: 50 states + DC | Abadie et al.: 39 states (the 12 policy states dropped) |
+| Outcome | per-capita consumption (`cigs`) | per-capita sales (`cigsale`) |
+| Treated from | 1989 | 1988 |
+| Spillover assumption | free effects on 13 named states | one intensity $\rho$ through rook contiguity |
+| Inference | P tests from the pre-treatment residuals | Bayesian posterior |
+
+```{python}
+from scspill.data import load_california
+
+sar = SCSPILL(
+    {**load_california().config_kwargs(), "m_iter": 4000, "burn": 2000, "seed": 42,
+     "display_graphs": False}
+).fit()
+print(f"sar: ATT {sar.att:.1f} (95% CrI [{sar.att_ci[0]:.1f}, {sar.att_ci[1]:.1f}]), "
+      f"rho {sar.rho_hat:.2f}")
+print(f"cd:  ATT {result.att:.1f} (no interval for the average)")
+```
+
+```{python}
+#| fig-cap: "California's direct effect under the two models, each with its own sample and 95% band."
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(8, 4.5))
+years = result.effects_panel.index
+ax.fill_between(years, result.effect_ci["CA"]["lower"], result.effect_ci["CA"]["upper"],
+                alpha=0.2, color="#1f77b4")
+ax.plot(years, result.effects_panel["CA"], "o-", color="#1f77b4", label="cd (51 units, from 1989)")
+t0 = sar.inputs.T0
+sar_years = sar.inputs.time_labels[t0:]
+gap = sar.inputs.Y0[t0:] - sar.effects_detail.cf_mean[t0:]
+ax.fill_between(sar_years, sar.inputs.Y0[t0:] - sar.effects_detail.cf_upper[t0:],
+                sar.inputs.Y0[t0:] - sar.effects_detail.cf_lower[t0:], alpha=0.2, color="crimson")
+ax.plot(sar_years, gap, "s-", color="crimson", label="sar (39 states, from 1988)")
+ax.axhline(0, color="black", linewidth=0.8)
+ax.set_xlabel("Year")
+ax.set_ylabel("Effect on California (packs per capita)")
+ax.legend();
+```
+
+The models agree that the program cut consumption and that the cut grew
+over the decade. They disagree about Nevada:
+
+```{python}
+pd.DataFrame(
+    {
+        "cd: spillover on NV": result.effects_panel["NV"].loc[1989:1992],
+        "sar: spillover on Nevada": sar.spillover_panel["Nevada"].loc[1989:1992],
+    }
+).round(2)
+```
+
+`cd` leaves the size and sign of each spillover free, and finds Nevada's
+consumption *rising*: leakage. `sar` routes every spillover through one
+intensity $\rho$ applied to California's own outcome. Its estimate here is
+positive, so a fall in California is passed on as a fall in its neighbours.
+A negative $\rho$ could express leakage, but the one intensity governs every
+channel at once, and in this sample the data put it above zero. Neither
+answer is "the" answer. The two models make different assumptions, so running
+both shows how much the conclusion depends on the spillover assumption.
+
+## Notes on this application
+
+- Arizona and Oregon passed tobacco taxes of their own in 1994 and 1996, so
+  their later "spillovers" mix leakage with their own policies. The paper
+  says the same.
+- The `cd` intervals come from 19 pre-treatment residuals. That limits the
+  smallest attainable P value to $1/19$, and it makes the leave-one-period-out
+  references (`reference_mode="leave_one_period_out"`) noticeably wider.
+- The [replication article](articles/cd-replication.qmd) shows the authors'
+  published numbers reproduced, with the settings of their application code.

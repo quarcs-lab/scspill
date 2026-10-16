@@ -25,10 +25,14 @@ website:
           - text: "---"
           - text: "sar — Bayesian spatial-autoregressive spillover SCM"
             file: models/sar.qmd
-          - text: "cd — Cao–Dowd SCM with spillovers"
+          - text: "cd — synthetic control under a known spillover structure"
             file: models/cd.qmd
-      - text: "Sudan case study"
-        file: sudan.qmd
+      - text: "Case studies"
+        menu:
+          - text: "Proposition 99 with a known spillover structure (cd vs sar)"
+            file: prop99-spillovers.qmd
+          - text: "The 2011 secession of South Sudan (sar)"
+            file: sudan.qmd
       - text: "For AI / LLMs"
         file: use-with-llms.qmd
       - text: "Articles"
@@ -37,6 +41,8 @@ website:
             file: articles/validation.qmd
           - text: "The Monte Carlo simulation study"
             file: articles/simulation-study.qmd
+          - text: "Replicating Cao & Dowd (cd)"
+            file: articles/cd-replication.qmd
           - text: "The bundled datasets"
             file: articles/datasets.qmd
       - text: "Reference"
@@ -85,29 +91,40 @@ quartodoc:
     - title: Estimator
       desc: >-
         Configure once, fit once. `SCSPILL(config).fit()` runs the spillover
-        model named by `method`: `"sar"` runs the Bayesian spatial sampler;
-        `"cd"` runs Cao–Dowd all-unit SCM and P-test inference. It returns
-        the model-specific result and a shared effect surface. The
-        [model catalogue](../models/index.qmd) says which models exist.
+        model named by `method` — `"sar"` (default), the Bayesian spatial
+        sampler, or `"cd"`, Cao & Dowd's all-unit synthetic controls under a
+        known exposure structure with P-test inference — and returns a
+        `SCSPILLResults` holding the shared effect surface and the model's own
+        fit. The [model catalogue](../models/index.qmd) says which models
+        exist.
       package: scspill.estimators.scspill
       contents:
         - SCSPILL
     - title: Configuration
       desc: >-
-        The pydantic input contract for `"sar"` — the long panel and its column
-        names, the spatial weights `spatial_w` / `spatial_W` (label-aligned),
-        covariates, the MCMC budget, priors, and the paper-correct switches
-        (`beta_prior`, `propagate_alpha`, `adapt_rho`) with their R-compatible
-        settings.
+        One pydantic input contract for every model: `method`, the long panel
+        and its column names, and the fields each model reads, marked
+        `(method='sar')` or `(method='cd')`. For `sar`: the spatial weights
+        `spatial_w` / `spatial_W`, covariates, the MCMC budget, priors, and
+        the paper-correct switches (`beta_prior`, `propagate_alpha`,
+        `adapt_rho`). For `cd`: the exposure structure (`affected_units`,
+        `spillover_structure`, `unit_distances`, `effect_matrix`), `weighting`,
+        and the inference switches (`quantile_method`, `ci_method`,
+        `reference_mode`). Setting a field of the model you did not select
+        is an error.
       package: scspill.utils.scspill_helpers.config
       contents:
         - SCSPILLConfig
     - title: Results
       desc: >-
-        The standardized posterior report — flat accessors (`att`, `att_ci`,
-        `counterfactual`, `gap`, `donor_weights`), the posterior blocks with
-        their full draw arrays, the time-by-donor spillover panel with credible
-        bands, a `diagnostics()` summary table, and `plot()` panels.
+        One result type for every model. The shared surface — `att`, `att_ci`,
+        `counterfactual`, `gap`, `donor_weights`, the time-by-control
+        spillover panel with its bands, and `plot()` — works for both; the
+        model's own fit sits in a typed slot (`result.sar`, `result.cd`).
+        `sar` adds the posterior blocks and `diagnostics()`; `cd` adds
+        `effects_panel`, `effect_ci`, `pointwise_p_values`, `kappa_test`,
+        `test_hypothesis()` and `select_structure_by_kappa()`. Accessors of
+        the other model raise `AttributeError`.
       package: scspill.utils.scspill_helpers.structures
       contents:
         - SCSPILLResults
@@ -179,10 +196,11 @@ quartodoc:
         - mcmc_summary
     - title: Datasets
       desc: >-
-        Three bundled panels: the 39-state California and Sudan SAR case
-        studies, plus the 51/41-unit California data used by Cao–Dowd with
-        treatment beginning in 1989. Each loader supplies model-specific
-        configuration fields.
+        Three bundled panels, each returned as a `SpillPanel` whose
+        `config_kwargs()` feeds `SCSPILLConfig` directly: the `sar` article's
+        39-state California and 34-country Sudan panels with their spatial
+        weights, and Cao & Dowd's 51- (or 41-) unit Proposition 99 panel,
+        treated from 1989, with the paper's exposed states.
       package: scspill.data
       contents:
         - load_california

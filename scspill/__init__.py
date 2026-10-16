@@ -20,9 +20,13 @@ Two models are implemented:
     for ``rho``) conditional on the posterior mean of ``alpha``.
 
 ``"cd"``
-    Cao and Dowd's intercept-adjusted, all-unit SCM with a researcher-supplied
-    spillover structure.  It reports period-specific direct and spillover
-    effects, Andrews P tests, confidence intervals, and specification tests.
+    The method of Cao & Dowd (arXiv:1902.07343v3). Every unit gets an
+    intercept-adjusted simplex synthetic control; a known exposure structure
+    (per-unit, homogeneous, distance-decay, or a custom matrix) separates the
+    direct effect from each spillover in every post-treatment period.
+    Inference is Andrews' end-of-sample P test for any linear hypothesis,
+    with the ``kappa_A`` structure test and a sensitivity analysis for missed
+    spillovers.
 
 Further spillover-aware models are planned behind the same interface; the
 catalogue at https://quarcs-lab.github.io/scspill/models/ tracks them and
@@ -37,8 +41,9 @@ Public API::
 plus the companion subpackages :mod:`scspill.validation` (the ``sar`` model's
 Geweke joint distribution test, prior sensitivity, and prior predictive
 checks), :mod:`scspill.simulate` (that model's Monte Carlo engine), and
-:mod:`scspill.data` (the bundled California Proposition 99 and Sudan
-secession spillover panels).
+:mod:`scspill.data` (the bundled case studies: California Proposition 99
+and the Sudan secession for ``sar``, and Cao & Dowd's Proposition 99 panel
+for ``cd``).
 """
 
 from importlib.metadata import PackageNotFoundError, version

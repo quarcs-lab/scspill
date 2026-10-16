@@ -23,6 +23,11 @@ ROOT = Path(__file__).resolve().parents[1]
 CONVERSIONS = [
     ("docs/get-started.qmd", "notebooks/california.ipynb", "scspill — California Proposition 99"),
     ("docs/sudan.qmd", "notebooks/sudan.ipynb", "scspill — the 2011 Sudan secession"),
+    (
+        "docs/prop99-spillovers.qmd",
+        "notebooks/prop99_spillovers.ipynb",
+        "scspill — Proposition 99 with a known spillover structure",
+    ),
 ]
 
 INSTALL_CELL = '%pip install -q "scspill[numba] @ git+https://github.com/quarcs-lab/scspill.git"'

@@ -1,13 +1,173 @@
 ---
-title: "`cd` — Cao–Dowd synthetic control with spillovers"
-subtitle: "Single treated unit, fixed exposure structure, and end-of-sample inference"
+title: "`cd` — synthetic control under a known spillover structure"
+subtitle: "Cao & Dowd (v3): all-unit synthetic controls, an exposure matrix, and end-of-sample inference"
 ---
 
-`method="cd"` implements [Cao and Dowd (arXiv:1902.07343v3)](https://arxiv.org/abs/1902.07343v3).
-It fits an intercept and simplex synthetic-control weights for **every** unit
-using pre-treatment outcomes. The researcher supplies a set of potentially
-exposed units or a labeled, fixed structure matrix $A$. The model permits a
-different direct and spillover effect in each post-treatment period.
+`cd` implements Jianfei Cao and Connor Dowd's *Estimation and Inference for
+Synthetic Control Methods with Spillover Effects*
+([arXiv:1902.07343v3](https://arxiv.org/abs/1902.07343v3)). The
+[model catalogue](index.qmd) compares it with the default
+[`sar` model](sar.qmd). This page states the model, the estimator, the
+inference, and the tools for checking the assumed structure. It also
+documents where scspill's defaults differ from the authors' application
+code. The implementation was contributed by Hayato Tagawa.
+
+Select it with `method="cd"` in `SCSPILLConfig`. Every field that only `cd`
+reads is marked `(method='cd')` in the
+[API reference](../reference/SCSPILLConfig.qmd).
+
+## Setup
+
+Units $i = 1, \dots, N$ are observed over periods $t = 1, \dots, T$; unit $1$
+is treated from period $T_0 + 1$ onward. SUTVA is not assumed: the treatment
+may change the outcomes of other units too. Collect the effects of period $t$
+in one vector,
+$$
+\alpha_t = Y_t - Y_t(\mathbf 0) \in \mathbb R^N ,
+$$
+whose first entry is the **treatment effect** on unit $1$ and whose other
+entries are the **spillover effects** on the controls. Classical synthetic
+control estimates only the first entry, and it does so assuming every other
+entry is zero.
+
+## The spillover model
+
+Cao and Dowd take the structure of the spillovers as known up to a few
+parameters (v3 Section 2.2):
+$$
+\alpha_t = A\,\gamma_t , \qquad A \in \mathbb R^{N \times k},\ k < N .
+$$
+The exposure matrix $A$ states who can be affected and how; $\gamma_t$ holds
+the magnitudes, free in every period. scspill builds $A$ from
+`spillover_structure`:
+
+| `spillover_structure` | Paper | $A$ | Parameters $\gamma_t$ |
+|---|---|---|---|
+| `"per_unit"` (default) | Example 1 (Section 2.2): limited range | one indicator column per treated unit and per unit in `affected_units` | the direct effect, then one spillover per exposed control |
+| `"homogeneous"` | Example 2 (Section 3.4) | one indicator column per treated unit, then one column of ones on `affected_units` | the direct effect and one spillover shared by the exposed controls |
+| `"distance_decay"` | Example 3 (Section 7.1) | one indicator column per treated unit, then $e^{-d_i}$ for each control in `unit_distances` | the direct effect and $b$, the spillover at distance zero |
+| `"custom"` | any $A$ | the labeled `effect_matrix` | one per column |
+
+Controls with a zero row of $A$ are the *pure donors*: they are assumed
+unexposed. A custom `effect_matrix` must give each treated unit its own
+direct-effect column: a single 1 in that unit's row, and zeros in every other
+row. scspill rejects anything else, because a spillover column that also
+loads on the treated unit would leak into its effect.
+
+**Several treated units.** Units that switch on in the same period are all
+treated (v3 Section S.1.2). Each gets its own direct-effect column, and
+`att_by_unit` reports every one. The headline surface (`att`,
+`counterfactual`, the plots) follows the first treated unit in label order.
+Staggered adoption is rejected.
+
+## Estimation
+
+**All-unit synthetic controls.** Every unit $i$, treated or not, gets an
+intercept and simplex weights on all the other units, fitted on the
+pre-treatment periods:
+$$
+(\hat a_i, \hat b_i) = \arg\min_{a,\ b \in \Delta_{-i}}
+  \sum_{t \le T_0} \bigl(y_{it} - a - Y_t' b\bigr)^2 ,
+$$
+where $\Delta_{-i}$ is the unit simplex with $b_i = 0$ (Section 3). Stack them
+into $\hat a$ and $\hat B$, and write $R = I - \hat B$. Before treatment the
+residuals $\hat u_t = R Y_t - \hat a$ are pure noise. After treatment, the
+effects enter through $R$:
+$$
+R Y_t - \hat a = R A \gamma_t + u_t .
+$$
+
+**The estimator.** Least squares in that equation (Section 3.2) gives
+$$
+\hat\gamma_t = (A' R' R A)^{-1} A' R' (R Y_t - \hat a),
+\qquad
+\hat\alpha_t = A \hat\gamma_t .
+$$
+It is identified when $RA$ has full column rank, so $A'MA$ with $M = R'R$ is
+invertible (Section 3.4). One case always fails: every row of $\hat B$ sums
+to one, so $R\mathbf 1 = 0$, and a structure that gives *every* control the
+same spillover is unidentified. scspill checks the rank and names the
+failure.
+
+**The efficient estimator.** Weighting the residual equations by a matrix
+$W$ gives
+$\hat\gamma_W = (A' R' W R A)^{-1} A' R' W (R Y_t - \hat a)$. With $W$ a
+consistent estimate of $\Omega^{-1}$, where $\Omega$ is the covariance of
+$u_t$, its asymptotic variance is never larger (Section S.1.1, Proposition
+S.1). `weighting="efficient"` adds it to the fit as `result.cd.efficient`,
+alongside the headline estimator. It uses
+$\hat\Omega = T_0^{-1}\sum_t \hat u_t \hat u_t' + 10^{-6} I$, and it warns
+when $T_0$ does not exceed the number of units: $\hat\Omega$ is then singular
+without that ridge.
+
+## Inference
+
+**The P test.** Andrews' (2003) end-of-sample instability test, generalized
+to $H_0: C\alpha_t = d$ (Section 4.2). The statistic is
+$$
+P = (C\hat\alpha_t - d)'\, W\, (C\hat\alpha_t - d),
+$$
+and its null distribution is approximated by the same quadratic form on the
+pre-treatment placebo effects, $\hat P_s = \hat u_s' \hat G' C' W C \hat G
+\hat u_s$, $s = 1, \dots, T_0$, with $\hat G = A(A'MA)^{-1}A'R'$. The test
+rejects when $P$ exceeds the $(1-\tau)$-quantile of the references, defined
+as the left inverse of their empirical CDF,
+$\inf\{x : \hat F(x) \ge 1-\tau\}$. The P value is the share of references at
+least as large as $P$. `result.test_hypothesis(C, d=..., period=...)` runs
+any such test, with $W$ the identity, a matrix you pass, or
+`weight="inverse_covariance"`.
+
+**Pointwise results.** For every unit and post-treatment period,
+`pointwise_p_values` tests $\alpha_{it} = 0$, and `effect_ci` holds the
+interval obtained by inverting that test: $\hat\alpha_{it} \pm
+\sqrt{q_{1-\tau}}$, with $q_{1-\tau}$ the critical value of the squared
+placebo effects. The interval is symmetric, and with several post periods
+each one is treated as the year right after the intervention (Section
+S.1.3). There is no interval for the average effect, so `att_ci` is `None`.
+
+**Reference statistics.** By default the references come from the
+full-sample fit, as Section 4 defines them. `reference_mode=
+"leave_one_period_out"` refits every SCM equation without each pre-treatment
+period and evaluates the refit on the period left out, a construction the
+paper points to in Andrews (2003) and Andrews and Kim (2006). In the
+Proposition 99 application it widens the intervals considerably.
+
+## Checking the structure
+
+**The $\kappa_A$ test** (Section 5.1.2). If $A$ is right, the part of the
+post-treatment residual that $RA$ cannot explain is noise like the
+pre-treatment residuals:
+$$
+\kappa_A = \lVert (I - \hat\Gamma_A)(R Y_t - \hat a) \rVert ,
+\qquad
+\hat\Gamma_A = RA(A'R'RA)^{-1}A'R' .
+$$
+Its references are $\lVert (I - \hat\Gamma_A)\hat u_s \rVert$, and
+`result.kappa_test[period]` reports the test in every post period.
+
+**Choosing a structure** (Sections 5.1.2 and S.1.3).
+`result.select_structure_by_kappa(candidates)` compares candidate structures
+on the same SCM fit and picks the smallest statistic. The default statistic
+is the paper's multi-period one,
+$\lVert \sum_s (I - \hat\Gamma_A)(R Y_{T_0+s} - \hat a) \rVert / \sqrt{T_1}$,
+under which selection is consistent as the post period grows.
+`statistic="mean_norm"` averages the per-period norms instead, as mlsynth
+does. A structure that nests another always fits at least as well, so
+compare candidates of similar size.
+
+**Sensitivity to missed spillovers** (Section 5.2.2). Suppose $p$ of the
+controls assumed clean in fact receive spillovers no larger than
+$\bar\alpha$. The asymptotic bias of the direct effect is then at most
+$c_p\,\bar\alpha$. Here $c_p$ is the sum of the $p$ largest absolute weights
+in one of two sets:
+
+- for the spillover-aware estimator, the treated unit's row of
+  $\hat G R - I$ over the clean controls (Section 5.1.1);
+- for the *pure-donor* synthetic control, which drops every exposed unit from
+  the donor pool, its donor weights.
+
+`result.cd.sensitivity` holds both weight vectors, and `plot(kind=
+"sensitivity")` draws the bounds, the paper's Figure 3.
 
 ## Fit
 
@@ -15,148 +175,82 @@ different direct and spillover effect in each post-treatment period.
 from scspill import SCSPILL
 from scspill.data import load_california_cd
 
-panel = load_california_cd(51)  # 50 states + DC; 1970–2000; post starts 1989
+panel = load_california_cd(51)        # 50 states + DC, 1970–2000, treated from 1989
 result = SCSPILL({**panel.config_kwargs(), "display_graphs": False}).fit()
-result.effects_panel.loc[1990, ["CA", "NV"]]
-result.effect_ci["CA"].loc[1990]
 ```
 
-The existing `load_california()` is a different 39-state, 1988-onward case
-study and does not reproduce this paper. `load_california_cd(41)` supplies
-the paper's reduced specification.
+| Accessor | What it holds |
+|---|---|
+| `result.att`, `result.counterfactual`, `result.gap` | the headline treated unit, from the shared effect surface |
+| `result.effects_panel` | every unit's effect by post period: treated columns direct, control columns spillovers |
+| `result.effect_ci[unit]`, `result.pointwise_p_values` | pointwise intervals and P values |
+| `result.test_hypothesis(C, d=0, period=1990)` | any linear hypothesis $C\alpha_t = d$ |
+| `result.kappa_test`, `result.select_structure_by_kappa(...)` | the structure test, and choosing among structures |
+| `result.cd.sensitivity`, `result.cd.efficient` | the sensitivity weights; the efficient estimator |
+| `result.scm_matrix`, `result.intercepts`, `result.effect_matrix` | $\hat B$, $\hat a$, $A$ |
+| `result.plot(kind=...)` | `panel`, `full`, `effect`, `spill_top`, `weights`, `spillover`, `kappa`, `sensitivity` |
 
-For a custom panel, pass `method="cd"`, `df`, `outcome`, `treat`, `unitid`,
-`time`, and either `affected_units` or `spillover_structure="custom"` with a
-pandas `effect_matrix`. The treatment flag is 1 only for the single treated
-unit from the first post period onward. The `effect_matrix` rows must cover
-every unit by label, and the treated unit's row must be its own direct-effect
-indicator: a single 1, in a column that is zero for every other unit. Other columns may encode shared or
-heterogeneous spillovers. All columns of $(I-\widehat B)A$ must be linearly
-independent; the fit raises an identification error otherwise.
+The [Proposition 99 case study](../prop99-spillovers.qmd) walks through all
+of it and sets `cd` beside `sar`.
 
-Writing $R=I-\widehat B$, the period-specific effect is
+## Where scspill departs from the authors' code {#departures}
 
-$$
-\widehat\alpha_t=A[(RA)'(RA)]^{-1}(RA)'(RY_t-\widehat a).
-$$
+`cd` defaults to the paper's definitions. The authors' Proposition 99
+application code ([jcao0/synthetic-control-spillover](https://github.com/jcao0/synthetic-control-spillover)
+at commit `86004020`) differs in two places. Each has a switch, so its
+published numbers can be reproduced:
 
-## Inference
-
-The defaults are the paper's Section 4 definitions. The authors' Proposition
-99 application code departs from them in two places, each kept as a switch
-so its published numbers can be reproduced; see [Caveats](#caveats).
-
-`result.test_hypothesis(C, d=0, period=1990)` tests a general linear
-restriction $C\alpha_t=d$ by the squared P statistic. `C` can be a labeled
-DataFrame or a matrix in `result.unit_labels` order. Identity and inverse
-projected second-moment weights are available. Set
-`reference_mode="leave_one_period_out"` to refit all SCM equations for each
-held-out pre-treatment period; `"full"` is the paper's Section 4 definition
-and the default.
-
-`result.effect_ci[unit]` is the pointwise interval selected by `ci_method`.
-Both versions are always stored: `pointwise_ci` (the default, the inverse of
-the squared P test) and `published_ci` (the authors' application code).
-`pointwise_p_values` holds the period-wise P values, and
-`kappa_test[period]` checks the assumed structure $A$ period by period
-(Section 5.1.2). `att` is the arithmetic mean of the post-period direct
-estimates; no ATT confidence interval is implied by the pointwise intervals.
-
-## Caveats {#caveats}
-
-The authors' application code and the paper's stated procedure differ in
-two places. `cd` follows the paper by default; each difference has a switch
-that reproduces the application code. Leave-one-period-out references are a
-third option.
-
-| # | Paper, Section 4 (default) | Authors' application code | Switch |
+| # | Authors' application code | scspill default (v3 Section 4) | Switch |
 |---|---|---|---|
-| 1 | Critical value $\inf\{x:\widehat F(x)\ge 1-\tau\}$, the left inverse of the empirical CDF | NumPy's linearly interpolated quantile | `quantile_method="linear"` |
-| 2 | Intervals by inverting the squared P test, which makes them symmetric about $\widehat\alpha$ | $\widehat\alpha + [q_{\tau/2},\, q_{1-\tau/2}]$ of the signed pre-treatment errors $e_i'\widehat G\widehat u_t$ | `ci_method="published"` |
-| 3 | Full-sample references | Full-sample references | `reference_mode="leave_one_period_out"` refits without each pre-treatment period |
+| 1 | critical value: NumPy's linearly interpolated quantile of the references | the left inverse of their empirical CDF | `quantile_method="linear"` |
+| 2 | interval: the estimate plus the signed placebo quantiles, $\hat\alpha + [q_{\tau/2}, q_{1-\tau/2}]$ | inversion of the squared P test, symmetric about $\hat\alpha$ | `ci_method="published"` |
 
-What each one changes in practice:
+What each changes in practice:
 
-1. With only 19 pre-treatment periods the two rules pick different order
-   statistics. The paper's 95% critical value is
-   $\lceil 0.95 \times 19 \rceil = 19$th, the largest reference statistic,
-   so it rejects only when the post-treatment statistic exceeds all 19. The
-   interpolated quantile sits at position 18.1, just above the second
-   largest. In the 51-unit application the joint test for any spillover
-   rejects in 1990–1992 and 1994–2000 under the application code's rule. In
-   1994 and 1995 the statistic (1745.8 and 1725.3) lies between the
-   interpolated cut-off (1482.8) and the largest reference value (1828.9),
-   so the paper's definition does not reject, and the paper's own P value,
-   $\#\{\widehat P_t \ge P\}/19 = 0.053$, is above 0.05.
-2. Since $\widehat\alpha-\alpha\approx Gu_{T+1}$, a percentile interval for
-   $\alpha$ subtracts the quantiles, $[\widehat\alpha-q_{1-\tau/2},\,
-   \widehat\alpha-q_{\tau/2}]$. The published interval adds them, which
-   agrees with that only when the error distribution is symmetric; for
-   California in 1989 it gives $[-3.87, 3.27]$ where the subtracting form
-   gives $[-3.11, 4.04]$. In the authors' repository the Proposition 99
-   code (`run_spec.py` computes the quantiles, `make_figures.py` plots
-   `te + lo` to `te + hi`) adds, while their continuous-treatment
-   application (`continuous_treatment.m`) subtracts.
-3. Leave-one-period-out references, an option the paper mentions (after
-   Andrews 2003) rather than its definition, widen the intervals substantially in the
-   California application; for California itself the range of the
-   reference errors more than doubles.
+1. **Critical values.** With 19 pre-treatment years, the left inverse is the
+   19th order statistic, the largest reference. The interpolated quantile
+   sits at position 18.1, just above the second largest. For the joint test
+   of "no spillover anywhere" in the 51-unit application, that decides 1994
+   and 1995: their statistics fall between the two cut-offs. The authors'
+   simulation code uses the left inverse, as the paper does.
+2. **Intervals.** Since $\hat\alpha - \alpha \approx G u$, a percentile
+   interval would *subtract* the placebo quantiles. Adding them agrees with
+   that only when the placebo distribution is symmetric. The paper's own
+   Figure 2 uses intervals built by inverting the test (Section 6.2), the
+   scspill default.
 
-The authors' own studies are not uniform either: their Monte Carlo size and
-power studies and the $\kappa_A$ study use the left-inverse critical value
-(`quantile_method="empirical"`), and the repository's README notes that its
-confidence intervals were checked against the original MATLAB output only
-for the point estimates.
+`published_ci` and `pointwise_ci` are both always stored; `effect_ci` returns
+the one `ci_method` selects. The [replication article](../articles/cd-replication.qmd)
+shows each setting reproducing its source.
 
-## Reproducing the paper
+**Compared with mlsynth.** mlsynth's `SPILLSYNTH(method="cd")` implements the
+same estimator. scspill matches it to solver tolerance, with identical P
+values, using mlsynth's inference settings (those of the application code).
+Two differences remain:
 
-The bundled panel is the input of the [authors' replication
-package](https://github.com/jcao0/synthetic-control-spillover) at commit
-`86004020`. The authors' application-code settings reproduce their published
-numbers:
+- scspill defaults to the paper's inference rather than the application
+  code's;
+- structure selection uses the paper's multi-period $\kappa_A$ by default,
+  where mlsynth averages the per-period norms (`statistic="mean_norm"`).
 
-```python
-import numpy as np
-import pandas as pd
-from scspill import SCSPILL
-from scspill.data import load_california_cd
+Covariates, time-varying structures and staggered adoption are outside this
+implementation.
 
-fit = SCSPILL(
-    {
-        **load_california_cd(51).config_kwargs(),
-        "quantile_method": "linear",   # the authors' application code
-        "ci_method": "published",
-        "display_graphs": False,
-    }
-).fit()
+## References
 
-# Estimate, 95% interval and P value for CA (direct) and NV, AZ, OR
-table_s6 = pd.concat(
-    {
-        unit: fit.effect_ci[unit].assign(
-            estimate=fit.effects_panel[unit], p_value=fit.pointwise_p_values[unit]
-        )
-        for unit in ["CA", "NV", "AZ", "OR"]
-    },
-    axis=1,
-).round(2)
+The `cd` model implements the method developed by Jianfei Cao and Connor Dowd
+in the first reference below.
 
-# Years in which "no spillover anywhere" is rejected
-no_spill = np.eye(len(fit.unit_labels))[1:]
-[t for t in fit.effects_panel.index if fit.test_hypothesis(no_spill, period=t).reject]
-
-# California's synthetic-control weights and intercept
-fit.scm_matrix.loc["CA"].nlargest(10), fit.intercepts["CA"]
-```
-
-`load_california_cd(41)` gives the paper's 41-unit robustness specification.
-`scspill/tests/test_cd.py` checks both fits against the authors' saved
-output: P values match exactly, and effects agree to within 0.01 packs.
-The remaining gap is the simplex solver. With the authors' settings, SciPy's
-SLSQP stops short of the optimum for every unit of the 51-unit panel; `cd`
-uses scaled objectives with analytic gradients and reaches an objective at
-or below theirs for every unit, so a few published two-decimal values
-differ in the last digit.
-
-Multiple treated units, covariates, time-varying $A$, and alternative
-estimators are outside this implementation.
+- Cao, J., & Dowd, C. *Estimation and Inference for Synthetic Control
+  Methods with Spillover Effects.* arXiv:1902.07343v3.
+  <https://arxiv.org/abs/1902.07343v3>
+- Andrews, D. W. K. (2003). End-of-sample instability tests.
+  *Econometrica* 71:1661–1694.
+- Andrews, D. W. K., & Kim, J. (2006). Tests for cointegration breakdown over
+  a short time period. *Journal of Business & Economic Statistics*
+  24:379–394.
+- Abadie, A., Diamond, A., & Hainmueller, J. (2010). Synthetic control
+  methods for comparative case studies. *JASA* 105(490).
+- Ferman, B., & Pinto, C. (2019). Inference in differences-in-differences
+  with few treated groups and heteroskedasticity. *The Review of Economics
+  and Statistics* 101:452–467.

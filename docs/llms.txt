@@ -13,9 +13,12 @@ The Econometrics Journal 2026), the default, and `method="cd"` (Cao & Dowd,
 arXiv:1902.07343v3). `sar` routes
 spillovers through user-supplied spatial weights scaled by one estimated
 intensity rho, via two-step MCMC (horseshoe synthetic weights, then a SAR
-spillover block). `cd` fits intercept-adjusted all-unit SCM with a fixed
-exposure matrix and P-test inference. `iscm` (Di Stefano & Mellace) and
-`grossi` (Grossi et al.) remain planned and are not implemented.
+spillover block). `cd` fits an intercept-adjusted simplex SCM for every
+unit, separates direct and spillover effects under a known exposure
+structure, and uses end-of-sample P tests. One SCSPILLConfig serves both;
+fields are marked (method='sar') or (method='cd'), and setting a field of
+the other model is an error. `iscm` (Di Stefano & Mellace) and `grossi`
+(Grossi et al.) remain planned and are not implemented.
 Catalogue: https://quarcs-lab.github.io/scspill/models/index.html
 
 Minimal contract (model `sar`): SCSPILL({df, outcome, treat, unitid, time,
@@ -26,12 +29,15 @@ treated unit and date are inferred from the 0/1 `treat` column; spatial
 weights align by donor label.
 
 Minimal contract (model `cd`): SCSPILL({method: "cd", df, outcome, treat,
-unitid, time, affected_units? | (spillover_structure='custom',
-effect_matrix), reference_mode?, quantile_method?, ci_method?}).fit() ->
-SCSPILLResults (method='cd') with .att, .counterfactual, .effects_panel,
-.effect_ci (= .pointwise_ci by test inversion by default, or .published_ci),
-.pointwise_p_values, .kappa_test, and .test_hypothesis(C). The 51-unit
-1989-onward replication panel is load_california_cd(51).
+unitid, time, affected_units?, spillover_structure? ('per_unit' |
+'homogeneous' | 'distance_decay' with unit_distances | 'custom' with
+effect_matrix), weighting?, reference_mode?, quantile_method?,
+ci_method?}).fit() -> SCSPILLResults (method='cd') with .att,
+.counterfactual, .effects_panel, .effect_ci (test inversion by default),
+.pointwise_p_values, .kappa_test, .test_hypothesis(C),
+.select_structure_by_kappa(candidates), .cd.sensitivity, .cd.efficient.
+Several treated units are allowed with a common start. The 51-unit
+1989-onward Proposition 99 panel is load_california_cd(51).
 
 ## Docs
 
@@ -39,9 +45,11 @@ SCSPILLResults (method='cd') with .att, .counterfactual, .effects_panel,
 - [Models: catalogue and roadmap](https://quarcs-lab.github.io/scspill/models/index.html)
 - [The `sar` model (Sakaguchi & Tagawa)](https://quarcs-lab.github.io/scspill/models/sar.html)
 - [The `cd` model (Cao & Dowd)](https://quarcs-lab.github.io/scspill/models/cd.html)
-- [Sudan case study](https://quarcs-lab.github.io/scspill/sudan.html)
+- [Sudan case study (sar)](https://quarcs-lab.github.io/scspill/sudan.html)
+- [Proposition 99 with a known spillover structure (cd vs sar)](https://quarcs-lab.github.io/scspill/prop99-spillovers.html)
 - [Validating the sampler](https://quarcs-lab.github.io/scspill/articles/validation.html)
 - [The Monte Carlo simulation study](https://quarcs-lab.github.io/scspill/articles/simulation-study.html)
+- [Replicating Cao & Dowd (cd)](https://quarcs-lab.github.io/scspill/articles/cd-replication.html)
 - [The bundled datasets](https://quarcs-lab.github.io/scspill/articles/datasets.html)
 - [For AI / LLMs](https://quarcs-lab.github.io/scspill/use-with-llms.html)
 - [Changelog](https://quarcs-lab.github.io/scspill/changelog.html)

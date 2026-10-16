@@ -1,0 +1,255 @@
+---
+title: "Replicating Cao & Dowd"
+subtitle: "The `cd` model against the paper, the authors' code, and mlsynth"
+---
+
+The [`cd` model](../models/cd.qmd) is checked against three independent
+sources, each with the settings that source uses:
+
+1. **The paper** (Cao & Dowd, arXiv:1902.07343v3), with scspill's default
+   settings, which are the paper's Section 4 definitions.
+2. **The authors' code**
+   ([jcao0/synthetic-control-spillover](https://github.com/jcao0/synthetic-control-spillover)
+   at commit `86004020`). Its Proposition 99 application output is checked
+   with the application code's settings, and its simulation code's
+   statistics are checked too.
+3. **mlsynth's** `SPILLSYNTH(method="cd")`, an independent implementation of
+   the same estimator, on frozen fixtures.
+
+The same checks run in the test suite (`scspill/tests/test_cd.py`,
+`test_cd_features.py`, `test_cd_mlsynth_parity.py`) and in the benchmark
+suite (`python benchmarks/run_benchmarks.py --case california_cd --case
+cd_vs_mlsynth`). This page runs them live.
+
+```{python}
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from scspill import SCSPILL
+from scspill.data import load_california_cd
+
+root = Path.cwd()
+while not (root / "benchmarks").exists():   # docs pages execute in docs/articles
+    root = root.parent
+reference = root / "benchmarks" / "reference"
+APPLICATION_CODE = {"quantile_method": "linear", "ci_method": "published"}
+```
+
+## The paper
+
+Section 6.2 of v3 makes two checkable statements about the 51-unit
+Proposition 99 fit:
+
+- California's effects in 1989 and 1990 are not significantly different from
+  zero at 5%, with intervals built by inverting the P test;
+- in Figure 3's sensitivity analysis, California's largest effect estimate
+  meets the upper bound of the spillover-aware bias set at
+  $\bar\alpha = 17.07$ with one missed spillover, and at $9.66$ with two.
+
+```{python}
+fit = SCSPILL({**load_california_cd(51).config_kwargs(), "display_graphs": False}).fit()
+fit.effect_ci["CA"].loc[[1989, 1990]].assign(estimate=fit.effects_panel["CA"]).round(2)
+```
+
+```{python}
+sens = fit.cd.sensitivity
+largest = fit.effects_panel["CA"].max()
+pd.Series(
+    {f"p = {p}": round(largest / sens.coefficients(p)[0], 2) for p in (1, 2)},
+    name="break-even alpha_bar",
+)
+```
+
+## The authors' application output
+
+The authors' Proposition 99 code uses two settings that differ from the
+paper: an interpolated quantile and signed-quantile intervals (see the
+[model page](../models/cd.qmd#departures)).
+With those two switches, scspill reproduces their frozen output for both
+specifications:
+
+```{python}
+rows = {}
+for spec in (51, 41):
+    expected = json.loads((reference / "cao_dowd" / f"results_{spec}.json").read_text())
+    out = SCSPILL(
+        {**load_california_cd(spec).config_kwargs(), **APPLICATION_CODE, "display_graphs": False}
+    ).fit()
+    effects = [out.effects_panel["CA"] - np.asarray(expected["te"])]
+    p_equal = [np.array_equal(out.pointwise_p_values["CA"], expected["te_pvalue"])]
+    for state in ("AZ", "NV", "OR"):
+        effects.append(out.effects_panel[state] - np.asarray(expected["u" + state][19:]))
+        p_equal.append(np.array_equal(out.pointwise_p_values[state], expected["p" + state]))
+    rows[f"{spec} units"] = {
+        "largest effect difference": float(np.abs(np.concatenate(effects)).max()),
+        "largest counterfactual difference": float(
+            np.abs(out.counterfactual - np.asarray(expected["sp"])).max()
+        ),
+        "every P value equal": all(p_equal),
+        "condition number": round(out.cd.condition_number, 3),
+        "authors' condition number": round(expected["cond"], 3),
+    }
+pd.DataFrame(rows).T
+```
+
+Effects agree to within 0.01 packs per capita, and every P value matches
+exactly. The remaining gap is the simplex solver. With the authors'
+settings, SciPy's SLSQP stops short of the optimum for every unit of the
+51-unit panel. scspill uses a scaled objective with analytic gradients and
+reaches an objective at or below theirs for every unit, so a few
+two-decimal values differ in the last digit.
+
+**The joint test of "no spillover anywhere".** The authors report it by
+year. The interpolated quantile reproduces their rejections, and the paper's
+left-inverse rule drops two of them:
+
+```{python}
+expected = json.loads((reference / "cao_dowd" / "results_51.json").read_text())
+app = SCSPILL(
+    {**load_california_cd(51).config_kwargs(), **APPLICATION_CODE, "display_graphs": False}
+).fit()
+no_spillover = np.eye(len(app.unit_labels))[1:]
+pd.DataFrame(
+    {
+        "authors' output": expected["spillover_test"],
+        "scspill, application code": [
+            int(app.test_hypothesis(no_spillover, period=t).reject) for t in app.effects_panel.index
+        ],
+        "scspill, paper (v3)": [
+            int(app.test_hypothesis(no_spillover, period=t, quantile_method="empirical").reject)
+            for t in app.effects_panel.index
+        ],
+    },
+    index=app.effects_panel.index,
+).T
+```
+
+## The authors' simulation code
+
+Three fixtures come from the authors' simulation code at the same commit:
+
+- the first replication of six simulation designs: stationary and integrated
+  factors, at three distances of the pure donors;
+- all 50 leave-one-period-out reference statistics of one design;
+- the $\kappa_A$ statistics and references of a per-unit and a homogeneous
+  structure.
+
+```{python}
+with np.load(reference / "cao_dowd" / "inference_replication_1.npz") as fixture:
+    panels, estimates = fixture["panels"], fixture["sp_estimates"]
+labels = [f"U{i:02d}" for i in range(51)]
+
+
+def simulated(panel, **options):
+    df = pd.DataFrame(panel, index=labels, columns=range(51)).stack().rename("y").reset_index()
+    df.columns = ["unit", "time", "y"]
+    df["treated"] = ((df["unit"] == "U00") & (df["time"] == 50)).astype(int)
+    config = {"method": "cd", "df": df, "outcome": "y", "treat": "treated", "unitid": "unit",
+              "time": "time", "affected_units": labels[1:14], "display_graphs": False}
+    return SCSPILL({**config, **options}).fit()
+
+
+diffs = [abs(simulated(p).effects_panel.iloc[0, 0] - e) for p, e in zip(panels, estimates)]
+kappa = json.loads((reference / "cao_dowd" / "kappa_rep1.json").read_text())
+homogeneous = simulated(panels[1], spillover_structure="homogeneous")
+loo = simulated(panels[1], reference_mode="leave_one_period_out")
+loo_ref = np.load(reference / "cao_dowd" / "loo_reference_stationary_r05_rep1.npy")
+pd.Series(
+    {
+        "largest effect difference, six designs": max(diffs),
+        "largest leave-one-out reference difference": float(
+            np.abs(loo.placebo_effects["U00"].to_numpy() ** 2 - loo_ref).max()
+        ),
+        "kappa_A difference, homogeneous": abs(
+            homogeneous.kappa_test[50].statistic - kappa["homogeneous"]["statistic"]
+        ),
+    }
+).map("{:.2e}".format).to_frame("difference from the authors' code")
+```
+
+## mlsynth
+
+mlsynth's `SPILLSYNTH(method="cd")` implements the same estimator with a
+different solver, cvxpy with CLARABEL. Its results on six cases are frozen in
+`benchmarks/reference/mlsynth_cd/` by `tools/freeze_mlsynth_cd_reference.py`:
+
+- the Proposition 99 panel under the per-unit, homogeneous and
+  distance-decay structures;
+- a synthetic panel with two treated units, with and without efficient
+  weighting.
+
+Under mlsynth's inference settings (those of the application code), scspill
+matches it:
+
+```{python}
+mls = json.loads((reference / "mlsynth_cd" / "reference.json").read_text())
+
+
+def mlsynth_case(name, case):
+    options = case["options"]
+    if name.startswith("ca"):
+        base = {**load_california_cd(int(name[2:4])).config_kwargs(), "affected_units": None}
+    else:
+        base = {"method": "cd", "df": pd.DataFrame(mls["panels"]["synth_two_treated"]),
+                "outcome": "y", "treat": "treated", "unitid": "unit", "time": "time"}
+    config = {**base, **APPLICATION_CODE, "display_graphs": False,
+              "spillover_structure": options.get("spillover_structure", "per_unit")}
+    for key in ("affected_units", "unit_distances"):
+        if options.get(key) is not None:
+            config[key] = options[key]
+    if options.get("weighting", "identity") != "identity":
+        config["weighting"] = options["weighting"]
+    return SCSPILL(config).fit()
+
+
+rows = {}
+for name, case in mls["cases"].items():
+    out = mlsynth_case(name, case)
+    units = case["units"]
+    b = out.scm_matrix.loc[units, units].to_numpy()
+    tests = {**case["treatment_tests"], **case["spillover_tests"]}
+    rows[name] = {
+        "largest B difference": float(
+            np.abs(b - [[case["B"][u][v] for v in units] for u in units]).max()
+        ),
+        "largest effect difference": float(
+            max(np.abs(out.effects_panel[u] - case["alpha"][u]).max() for u in units)
+        ),
+        "P values equal": all(
+            np.array_equal(out.pointwise_p_values[u], t["p_value"]) for u, t in tests.items()
+        ),
+    }
+pd.DataFrame(rows).T
+```
+
+**Structure selection.** mlsynth's `select_A_by_kappa` averages the
+per-period $\kappa_A$ norms. scspill offers that statistic as
+`statistic="mean_norm"`, and it reproduces mlsynth's choice. scspill's
+default is the paper's multi-period statistic (v3 Section S.1.3), which can
+rank the candidates differently:
+
+```{python}
+selection = mls["selection"]
+synthetic = SCSPILL(
+    {"method": "cd", "df": pd.DataFrame(mls["panels"]["synth_homogeneous"]), "outcome": "y",
+     "treat": "treated", "unitid": "unit", "time": "time",
+     "affected_units": selection["candidates"]["per_unit_3"]["affected_units"],
+     "display_graphs": False}
+).fit()
+pd.DataFrame(
+    {
+        "mlsynth": selection["mean_kappa"],
+        "scspill, mean_norm": synthetic.select_structure_by_kappa(
+            selection["candidates"], statistic="mean_norm"
+        ).statistics,
+        "scspill, v3": synthetic.select_structure_by_kappa(selection["candidates"]).statistics,
+    }
+).round(3)
+```
+
+The provenance of every fixture (versions, commit, SHA-256 checksums) is
+recorded in `benchmarks/reference/cao_dowd/README.md` and
+`benchmarks/reference/mlsynth_cd/README.md`.
