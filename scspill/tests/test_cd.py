@@ -18,13 +18,13 @@ import pytest
 
 from scspill import (
     SCSPILL,
-    CDResults,
     SCSPILLConfig,
     ScspillConfigError,
     ScspillEstimationError,
+    SCSPILLResults,
 )
 from scspill.data import load_california_cd
-from scspill.utils.scspill_helpers.cd import _scm_all
+from scspill.utils.scspill_helpers.cd.scm_core import fit_all_unit_scm
 
 REFERENCE = Path(__file__).resolve().parents[2] / "benchmarks/reference/cao_dowd"
 #: The settings of the authors' Proposition 99 application code.
@@ -35,8 +35,8 @@ def test_scm_is_optimal_with_tiny_maxiter_and_falls_back_to_fista(monkeypatch):
     rng = np.random.default_rng(17)
     y = rng.normal(size=(4, 12))
     y[0] = 0.85 * y[1] + 0.15 * y[2] + 0.02 * rng.normal(size=12)
-    short_intercepts, short_weights = _scm_all(y, maxiter=1, ftol=1e-12)
-    regular_intercepts, regular_weights = _scm_all(y, maxiter=3000, ftol=1e-12)
+    short_intercepts, short_weights = fit_all_unit_scm(y, maxiter=1, ftol=1e-12)
+    regular_intercepts, regular_weights = fit_all_unit_scm(y, maxiter=3000, ftol=1e-12)
     short_loss = np.sum((y[0] - short_intercepts[0] - short_weights[0] @ y) ** 2)
     regular_loss = np.sum((y[0] - regular_intercepts[0] - regular_weights[0] @ y) ** 2)
     assert short_loss <= regular_loss + 1e-5
@@ -47,8 +47,8 @@ def test_scm_is_optimal_with_tiny_maxiter_and_falls_back_to_fista(monkeypatch):
     def failing(fun, x0, **kwargs):
         return OptimizeResult(x=np.full_like(x0, np.nan), success=False)
 
-    monkeypatch.setattr("scspill.utils.scspill_helpers.cd.minimize", failing)
-    fb_intercepts, fb_weights = _scm_all(y, maxiter=3000, ftol=1e-12)
+    monkeypatch.setattr("scspill.utils.scspill_helpers.cd.scm_core.minimize", failing)
+    fb_intercepts, fb_weights = fit_all_unit_scm(y, maxiter=3000, ftol=1e-12)
     fb_loss = np.sum((y[0] - fb_intercepts[0] - fb_weights[0] @ y) ** 2)
     assert fb_loss <= regular_loss + 1e-4
     assert fb_weights[0].sum() == pytest.approx(1)
@@ -59,11 +59,11 @@ def test_application_against_authors_frozen_output(spec):
     panel = load_california_cd(spec)
     expected = json.loads((REFERENCE / f"results_{spec}.json").read_text())
     result = SCSPILL({**panel.config_kwargs(), **APPLICATION_CODE, "display_graphs": False}).fit()
-    assert isinstance(result, CDResults)
+    assert isinstance(result, SCSPILLResults) and result.method == "cd"
     assert len(result.unit_labels) == spec
-    assert result.t_pre == 19
-    assert result.rank == expected["k"]
-    assert result.condition_number == pytest.approx(expected["cond"], abs=0.03)
+    assert result.inputs.T0 == 19
+    assert result.cd.rank == expected["k"]
+    assert result.cd.condition_number == pytest.approx(expected["cond"], abs=0.03)
     np.testing.assert_allclose(result.effects_panel["CA"], expected["te"], atol=0.03)
     np.testing.assert_allclose(result.counterfactual, expected["sp"], atol=0.03)
     np.testing.assert_allclose(
@@ -86,8 +86,8 @@ def test_defaults_are_v3_section4():
     """Defaults: left-inverse critical values and test-inversion intervals."""
     panel = load_california_cd(51)
     result = SCSPILL({**panel.config_kwargs(), "display_graphs": False}).fit()
-    assert (result.quantile_method, result.ci_method) == ("empirical", "inversion")
-    assert result.reference_mode == "full"
+    assert (result.cd.quantile_method, result.cd.ci_method) == ("empirical", "inversion")
+    assert result.cd.reference_mode == "full"
     assert result.effect_ci is result.pointwise_ci
     width = result.pointwise_ci["CA"].eval("upper - lower")
     assert np.allclose(width, width.iloc[0])  # symmetric, constant half-width

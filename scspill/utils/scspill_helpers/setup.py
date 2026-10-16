@@ -43,6 +43,7 @@ def prepare_panel_inputs(
     allow_multiple_treated: bool = False,
     min_pre: int = 2,
     min_controls: int = 3,
+    require_persistent: bool = False,
 ) -> PanelInputs:
     """Build :class:`PanelInputs` from a long panel.
 
@@ -66,6 +67,8 @@ def prepare_panel_inputs(
         Minimum number of pre-treatment periods.
     min_controls : int, default 3
         Minimum number of control units.
+    require_persistent : bool, default False
+        Require treatment to stay on in every period after it starts.
 
     Returns
     -------
@@ -122,6 +125,8 @@ def prepare_panel_inputs(
             + "."
         )
     T0 = starts[treated_units[0]]
+    if require_persistent and not (twide[treated_units].to_numpy()[T0:] == 1).all():
+        raise ScspillDataError("SCSPILL: treatment must stay on once it starts.")
     if min_pre > T0:
         raise ScspillDataError(f"SCSPILL: needs >= {min_pre} pre-treatment periods.")
     if T - T0 < 1:

@@ -36,6 +36,7 @@ if TYPE_CHECKING:  # pragma: no cover
 #: The plot kinds each model supports.
 KINDS: dict[str, tuple[str, ...]] = {
     "sar": ("panel", "full", "effect", "spill_top", "weights", "rho", "trace"),
+    "cd": ("panel", "full", "effect", "spill_top", "weights"),
 }
 
 

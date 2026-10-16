@@ -87,3 +87,41 @@ def test_save_true_writes_a_file_not_a_path(fitted, tmp_path, monkeypatch):
     assert written, "save=True wrote nothing"
     assert all("/" not in p.name for p in written)
     plt.close("all")
+
+
+# ---------------------------------------------------------------------------
+# method="cd"
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def cd_fitted():
+    from scspill.data import load_california_cd
+
+    return SCSPILL({**load_california_cd(41).config_kwargs(), "display_graphs": False}).fit()
+
+
+@pytest.mark.parametrize("kind", ["full", "effect", "weights"])
+def test_cd_single_axis_kinds(cd_fitted, kind):
+    ax = plot_scspill(cd_fitted, kind=kind, display=False)
+    assert hasattr(ax, "figure")
+    plt.close("all")
+
+
+def test_cd_panel_and_spill_top(cd_fitted):
+    assert np.asarray(plot_scspill(cd_fitted, kind="panel", display=False)).size == 3
+    assert np.asarray(plot_scspill(cd_fitted, kind="spill_top", top_n=3, display=False)).size >= 3
+    plt.close("all")
+
+
+def test_sar_only_kind_rejected_for_cd(cd_fitted):
+    with pytest.raises(ScspillPlottingError, match="method='cd'"):
+        plot_scspill(cd_fitted, kind="rho", display=False)
+
+
+def test_cd_display_graphs_fit_path():
+    from scspill.data import load_california_cd
+
+    res = SCSPILL({**load_california_cd(41).config_kwargs(), "display_graphs": True}).fit()
+    assert res.method == "cd"
+    plt.close("all")

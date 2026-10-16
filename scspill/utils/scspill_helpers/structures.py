@@ -18,6 +18,7 @@ from pydantic import ConfigDict, Field, model_validator
 
 from ...config_models import BaseEstimatorResults
 from ...exceptions import ScspillEstimationError
+from .cd.structures import CDFit, CDInputs, CDTestResult
 from .containers import PanelInputs, SCSPILLEffects, _freeze_array
 from .sar.structures import (
     AlphaPosterior,
@@ -30,6 +31,9 @@ from .sar.structures import (
 
 __all__ = [
     "AlphaPosterior",
+    "CDFit",
+    "CDInputs",
+    "CDTestResult",
     "PanelInputs",
     "SARFit",
     "SARInputs",
@@ -69,18 +73,145 @@ class SCSPILLResults(BaseEstimatorResults):
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, extra="forbid")
 
-    method: Literal["sar"] = "sar"
-    inputs: SARInputs
+    method: Literal["sar", "cd"] = "sar"
+    inputs: SARInputs | CDInputs
     effects_detail: SCSPILLEffects
     scm_weights: dict[str, float] | None = None
     sar: SARFit | None = Field(default=None, exclude=True, repr=False)
+    cd: CDFit | None = Field(default=None, exclude=True, repr=False)
 
     @model_validator(mode="after")
     def _check_model_slot(self) -> SCSPILLResults:
-        """Check that the slot named by ``method`` holds the fit."""
-        if getattr(self, self.method) is None:
-            raise ScspillEstimationError(f"A method={self.method!r} result needs its fit.")
+        """Check that exactly the slot named by ``method`` holds the fit."""
+        expected = {"sar": (SARFit, SARInputs), "cd": (CDFit, CDInputs)}
+        for name, (fit_type, inputs_type) in expected.items():
+            fit = getattr(self, name)
+            if name == self.method:
+                if not isinstance(fit, fit_type) or not isinstance(self.inputs, inputs_type):
+                    raise ScspillEstimationError(
+                        f"A method={self.method!r} result needs its {fit_type.__name__} "
+                        f"and {inputs_type.__name__}."
+                    )
+            elif fit is not None:
+                raise ScspillEstimationError(
+                    f"A method={self.method!r} result must not carry a {name!r} fit."
+                )
         return self
+
+    # ------------------------------------------------------------------
+    # Shared across models
+    # ------------------------------------------------------------------
+    @property
+    def treated_labels(self) -> tuple[Any, ...]:
+        """Every treated unit; the first is the headline of the effect surface."""
+        return self.inputs.treated_labels
+
+    @property
+    def unit_labels(self) -> tuple[Any, ...]:
+        """Every unit: the treated units first, then the controls."""
+        return self.inputs.unit_labels
+
+    @property
+    def att_scm(self) -> float | None:
+        """ATT of the no-spillover synthetic-control comparator."""
+        return self.effects_detail.att_scm
+
+    @property
+    def att_by_unit(self) -> dict[Any, float]:
+        """Average post-treatment effect on every treated unit."""
+        if self.cd is not None:
+            return dict(self.cd.att_by_unit)
+        return {self.inputs.treated_label: float(self.effects_detail.att)}
+
+    # ------------------------------------------------------------------
+    # method="cd"
+    # ------------------------------------------------------------------
+    def _require_cd(self, name: str) -> CDFit:
+        """Return the ``cd`` fit, or raise AttributeError naming the accessor."""
+        if self.cd is None:
+            raise AttributeError(
+                f"{name!r} is defined only for method='cd'; this result has method={self.method!r}."
+            )
+        return self.cd
+
+    @property
+    def effects_panel(self) -> pd.DataFrame:
+        """Estimated effect on every unit by post period (``cd`` only).
+
+        Treated columns are direct effects, control columns spillovers.
+        """
+        return self._require_cd("effects_panel").effects_panel
+
+    @property
+    def effect_ci(self) -> dict[Any, pd.DataFrame]:
+        """Pointwise interval of every unit's effect, by ``ci_method`` (``cd`` only)."""
+        return self._require_cd("effect_ci").effect_ci
+
+    @property
+    def pointwise_ci(self) -> dict[Any, pd.DataFrame]:
+        """Pointwise intervals by P-test inversion (``cd`` only)."""
+        return self._require_cd("pointwise_ci").pointwise_ci
+
+    @property
+    def published_ci(self) -> dict[Any, pd.DataFrame]:
+        """Pointwise intervals by the authors' signed-quantile rule (``cd`` only)."""
+        return self._require_cd("published_ci").published_ci
+
+    @property
+    def pointwise_p_values(self) -> pd.DataFrame:
+        """P value of every unit's effect by post period (``cd`` only)."""
+        return self._require_cd("pointwise_p_values").pointwise_p_values
+
+    @property
+    def placebo_effects(self) -> pd.DataFrame:
+        """Pre-treatment placebo effects, the P-test references (``cd`` only)."""
+        return self._require_cd("placebo_effects").placebo_effects
+
+    @property
+    def pre_residuals(self) -> pd.DataFrame:
+        """Pre-treatment SCM residuals of every unit (``cd`` only)."""
+        return self._require_cd("pre_residuals").pre_residuals
+
+    @property
+    def kappa_test(self) -> dict[Any, CDTestResult]:
+        """The ``kappa_A`` structure test by post period (``cd`` only)."""
+        return self._require_cd("kappa_test").kappa_test
+
+    @property
+    def scm_matrix(self) -> pd.DataFrame:
+        """All-unit SCM weight matrix ``B`` (``cd`` only)."""
+        return self._require_cd("scm_matrix").scm_matrix
+
+    @property
+    def intercepts(self) -> pd.Series:
+        """Intercepts of every unit's SCM equation (``cd`` only)."""
+        return self._require_cd("intercepts").intercepts
+
+    @property
+    def effect_matrix(self) -> pd.DataFrame:
+        """The exposure matrix ``A`` used by the fit (``cd`` only)."""
+        return self._require_cd("effect_matrix").inputs.A
+
+    def test_hypothesis(
+        self,
+        C: np.ndarray | pd.DataFrame,
+        *,
+        d: np.ndarray | float | None = None,
+        period: Any | None = None,
+        weight: np.ndarray | Literal["inverse_covariance"] | None = None,
+        quantile_method: Literal["empirical", "linear"] | None = None,
+    ) -> CDTestResult:
+        """Test ``C @ alpha_t = d`` by the pre-treatment P distribution (``cd`` only).
+
+        See :meth:`scspill.utils.scspill_helpers.cd.structures.CDFit.test_hypothesis`.
+        """
+        return self._require_cd("test_hypothesis").test_hypothesis(
+            C, d=d, period=period, weight=weight, quantile_method=quantile_method
+        )
+
+    # ------------------------------------------------------------------
+    # method="sar"
+    # ------------------------------------------------------------------
 
     def _require_sar(self, name: str) -> SARFit:
         """Return the ``sar`` fit, or raise AttributeError naming the accessor."""

@@ -44,7 +44,7 @@ API_GROUPS = [
     (
         "Top level",
         "scspill",
-        ["SCSPILL", "SCSPILLConfig", "SCSPILLResults", "CDResults"],
+        ["SCSPILL", "SCSPILLConfig", "SCSPILLResults"],
     ),
     ("scspill.validation", "scspill.validation", None),
     ("scspill.simulate", "scspill.simulate", None),
@@ -84,7 +84,7 @@ def canonical() -> str:
         "",
         'Minimal contract (model `cd`): SCSPILL({method: "cd", df, outcome, treat,',
         "unitid, time, affected_units? or effect_matrix?, reference_mode?,",
-        "quantile_method?, ci_method?}).fit() -> CDResults with .effects_panel,",
+        "quantile_method?, ci_method?}).fit() -> SCSPILLResults with .effects_panel,",
         ".effect_ci (= .published_ci by default, or .pointwise_ci),",
         ".pointwise_p_values, .kappa_test, and .test_hypothesis(C). The 51-unit",
         "1989-onward replication panel is load_california_cd(51).",
