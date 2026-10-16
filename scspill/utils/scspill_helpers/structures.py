@@ -372,8 +372,9 @@ class SCSPILLResults(BaseEstimatorResults):
         kind : str, default "auto"
             ``"auto"`` / ``"counterfactual"`` / ``"gap"`` use the shared
             effect-plot contract; ``"panel"``, ``"full"``, ``"effect"``,
-            ``"spill_top"``, ``"weights"``, ``"rho"``, and ``"trace"`` route
-            to :func:`scspill.utils.scspill_helpers.plotter.plot_scspill`.
+            ``"spill_top"``, ``"weights"`` (both models), ``"rho"``,
+            ``"trace"`` (``sar``), ``"spillover"`` and ``"kappa"`` (``cd``)
+            route to :func:`scspill.utils.scspill_helpers.plotter.plot_scspill`.
         ax : matplotlib Axes, optional
             Draw into an existing axis (single-panel kinds only).
         **overrides

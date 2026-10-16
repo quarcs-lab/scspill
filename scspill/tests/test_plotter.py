@@ -101,7 +101,7 @@ def cd_fitted():
     return SCSPILL({**load_california_cd(41).config_kwargs(), "display_graphs": False}).fit()
 
 
-@pytest.mark.parametrize("kind", ["full", "effect", "weights"])
+@pytest.mark.parametrize("kind", ["full", "effect", "weights", "kappa"])
 def test_cd_single_axis_kinds(cd_fitted, kind):
     ax = plot_scspill(cd_fitted, kind=kind, display=False)
     assert hasattr(ax, "figure")
@@ -112,6 +112,19 @@ def test_cd_panel_and_spill_top(cd_fitted):
     assert np.asarray(plot_scspill(cd_fitted, kind="panel", display=False)).size == 3
     assert np.asarray(plot_scspill(cd_fitted, kind="spill_top", top_n=3, display=False)).size >= 3
     plt.close("all")
+
+
+def test_cd_spillover_grid(cd_fitted):
+    axes = plot_scspill(cd_fitted, kind="spillover", display=False)
+    visible = [ax for ax in np.asarray(axes).ravel() if ax.get_visible()]
+    assert len(visible) == 4  # CA (direct) + AZ, NV, OR (spillovers)
+    assert visible[0].get_title() == "CA (direct effect)"
+    plt.close("all")
+
+
+def test_cd_only_kind_rejected_for_sar(fitted):
+    with pytest.raises(ScspillPlottingError, match="method='sar'"):
+        plot_scspill(fitted, kind="kappa", display=False)
 
 
 def test_sar_only_kind_rejected_for_cd(cd_fitted):
