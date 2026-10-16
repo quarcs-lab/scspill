@@ -22,8 +22,8 @@ from __future__ import annotations
 import numpy as np
 
 from ....exceptions import ScspillDataError
-from ..structures import AlphaPosterior
 from ._kernels import resolve_backend
+from .structures import AlphaPosterior
 
 
 def hs_alpha_gibbs(

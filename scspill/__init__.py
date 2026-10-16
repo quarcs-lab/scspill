@@ -30,9 +30,9 @@ states plainly which are implemented.
 
 Public API::
 
-    from scspill import SCSPILL, SCSPILLConfig, CDConfig
+    from scspill import SCSPILL, SCSPILLConfig
 
-    result = SCSPILL(config).fit()   # -> SCSPILLResults or CDResults
+    result = SCSPILL(config).fit()   # -> SCSPILLResults (method="sar" or "cd")
 
 plus the companion subpackages :mod:`scspill.validation` (the ``sar`` model's
 Geweke joint distribution test, prior sensitivity, and prior predictive
@@ -58,8 +58,6 @@ from scspill.exceptions import (
 
 __all__ = [
     "SCSPILL",
-    "CDConfig",
-    "CDResults",
     "SCSPILLConfig",
     "SCSPILLResults",
     "ScspillConfigError",
@@ -76,8 +74,6 @@ _LAZY_EXPORTS = {
     "SCSPILL": ("scspill.estimators.scspill", "SCSPILL"),
     "SCSPILLConfig": ("scspill.utils.scspill_helpers.config", "SCSPILLConfig"),
     "SCSPILLResults": ("scspill.utils.scspill_helpers.structures", "SCSPILLResults"),
-    "CDConfig": ("scspill.utils.scspill_helpers.cd", "CDConfig"),
-    "CDResults": ("scspill.utils.scspill_helpers.cd", "CDResults"),
 }
 
 

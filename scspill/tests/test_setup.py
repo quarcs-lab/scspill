@@ -256,3 +256,71 @@ def test_caller_arrays_not_write_protected(panel):
     assert W_user.flags.writeable
     assert w_user.flags.writeable
     W_user[0, 0] = W_user[0, 0]  # still assignable
+
+
+# ---------------------------------------------------------------------------
+# MODEL-AGNOSTIC INGESTION (prepare_panel_inputs)
+# ---------------------------------------------------------------------------
+
+
+def _panel_inputs(panel, df=None, **kwargs):
+    from scspill.utils.scspill_helpers.setup import prepare_panel_inputs
+
+    return prepare_panel_inputs(
+        panel["df"] if df is None else df, "y", "treat", "unit", "time", **kwargs
+    )
+
+
+def test_panel_inputs_match_sar_inputs(panel):
+    """The shared panel is exactly the panel part of the sar inputs."""
+    shared = _panel_inputs(panel)
+    sar = _prep(panel, covariates=None)
+    np.testing.assert_array_equal(shared.Y0, sar.Y0)
+    np.testing.assert_array_equal(shared.Yc, sar.Yc)
+    assert shared.control_labels == sar.control_labels
+    assert shared.treated_labels == (shared.treated_label,)
+    assert shared.Yt.shape == (shared.T, 1)
+    assert shared.unit_labels == (shared.treated_label, *shared.control_labels)
+
+
+def test_multiple_treated_units_with_common_start(panel):
+    df = panel["df"].copy()
+    other = panel["units"][0]
+    start = df.loc[(df["unit"] == "treated") & (df["treat"] == 1), "time"].min()
+    df.loc[(df["unit"] == other) & (df["time"] >= start), "treat"] = 1
+    inputs = _panel_inputs(panel, df=df, allow_multiple_treated=True)
+    assert inputs.n_treated == 2
+    assert inputs.treated_labels == tuple(sorted(["treated", other]))
+    assert inputs.treated_label == inputs.treated_labels[0]
+    assert other not in inputs.control_labels
+    # Without the flag the shared check still rejects it.
+    with pytest.raises(ScspillDataError, match="exactly one treated"):
+        _panel_inputs(panel, df=df)
+
+
+def test_staggered_adoption_rejected(panel):
+    df = panel["df"].copy()
+    other = panel["units"][0]
+    df.loc[(df["unit"] == other) & (df["time"] >= 14), "treat"] = 1
+    with pytest.raises(ScspillDataError, match="common treatment start"):
+        _panel_inputs(panel, df=df, allow_multiple_treated=True)
+
+
+def test_non_binary_treatment_rejected(panel):
+    df = panel["df"].copy()
+    df.loc[df["treat"] == 1, "treat"] = 2
+    with pytest.raises(ScspillDataError, match="0/1"):
+        _panel_inputs(panel, df=df)
+
+
+def test_duplicate_unit_period_rows_rejected(panel):
+    df = pd.concat([panel["df"], panel["df"].iloc[[0]]], ignore_index=True)
+    with pytest.raises(ScspillDataError, match="duplicate unit-period"):
+        _panel_inputs(panel, df=df)
+
+
+def test_min_pre_and_min_controls(panel):
+    with pytest.raises(ScspillDataError, match=">= 13 pre-treatment"):
+        _panel_inputs(panel, min_pre=13)
+    with pytest.raises(ScspillDataError, match="at least 10 control"):
+        _panel_inputs(panel, min_controls=10)

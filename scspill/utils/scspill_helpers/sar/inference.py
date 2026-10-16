@@ -13,7 +13,8 @@ from typing import Any
 import numpy as np
 
 from ....config_models import InferenceResults
-from ..structures import SCSPILLEffects
+from ....exceptions import ScspillEstimationError
+from ..containers import SCSPILLEffects
 
 
 def build_inference(effects: SCSPILLEffects) -> InferenceResults:
@@ -31,6 +32,8 @@ def build_inference(effects: SCSPILLEffects) -> InferenceResults:
         posterior standard deviation of the ATT draws as the standard error,
         and the effects detail attached as ``details``.
     """
+    if effects.att_draws is None or effects.att_ci is None:
+        raise ScspillEstimationError("sar inference needs the posterior ATT draws.")
     att_draws = np.asarray(effects.att_draws, dtype=float)
     return InferenceResults(
         ci_lower=effects.att_ci[0],

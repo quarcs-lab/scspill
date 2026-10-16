@@ -4,27 +4,67 @@
 
 ### New model: `cd` (Cao & Dowd)
 
-- **`method="cd"` implements Cao and Dowd (arXiv:1902.07343v4)**: an
-  intercept-adjusted simplex SCM for every unit, a fixed exposure structure
-  given by `affected_units` or a labeled `effect_matrix`, period-specific
-  direct and spillover effects, Andrews-type P tests for `C α_t = d`, and the
-  `κ_A` specification test. `load_california_cd(51)` and
-  `load_california_cd(41)` bundle the authors' 50-state-plus-DC panel.
-- **The defaults follow the authors' Proposition 99 replication code**, so a
-  default fit reproduces the paper's Section 6 tables and Figure 4:
-  interpolated critical values (`quantile_method="linear"`) and intervals
-  that add the signed pre-treatment error quantiles to the estimate
-  (`ci_method="published"`, returned by `effect_ci`). The paper's Section 4
-  definitions are available as `quantile_method="empirical"`,
-  `ci_method="inversion"` and `reference_mode="leave_one_period_out"`; the
-  differences are listed under Caveats in `docs/models/cd.qmd`.
-- `scspill/tests/test_cd.py` checks the 51- and 41-unit fits against the
-  authors' frozen output (`jcao0/synthetic-control-spillover`, commit
-  `86004020`), stored in `benchmarks/reference/cao_dowd/`.
+Contributed by Hayato Tagawa, and restructured to the package's architecture.
+
+- **`method="cd"` implements Cao and Dowd, "Estimation and Inference for
+  Synthetic Control Methods with Spillover Effects" (arXiv:1902.07343v3).**
+  It fits an intercept-adjusted simplex SCM for every unit and takes a known
+  exposure structure: `affected_units` (one effect per exposed control), or a
+  labeled `effect_matrix` with `spillover_structure="custom"`. It reports
+  period-specific direct and spillover effects (`effects_panel`), pointwise
+  intervals and P values (`effect_ci`, `pointwise_p_values`), Andrews-type P
+  tests of any `C α_t = d` (`test_hypothesis`), and the `κ_A` specification
+  test of the structure (`kappa_test`).
+- **The defaults are the paper's Section 4 definitions.** Critical values are
+  the left inverse of the empirical CDF, intervals invert the squared P test,
+  and the references come from the full-sample fit. This is the same rule
+  `sar` follows: paper-correct defaults, with the reference implementation's
+  behaviour behind switches. The authors' Proposition 99 application code
+  differs in two places. `quantile_method="linear"` and
+  `ci_method="published"` reproduce it, and `reference_mode="leave_one_period_out"`
+  refits every SCM equation without each pre-treatment period.
+- **One configuration, one result type for every model.** `cd` is selected
+  with `SCSPILLConfig(method="cd")`, and its fields carry a `(method='cd')`
+  prefix as `sar`'s carry `(method='sar')`. Setting a field of the model you
+  did not select is an error that names the field. A fit returns
+  `SCSPILLResults` with the model's own fit in a typed slot (`result.sar` or
+  `result.cd`). The shared surface — `att`, `counterfactual`, `gap`,
+  `donor_weights`, `effects_detail`, `plot()` — works for both. Model-only
+  accessors raise `AttributeError` on the other model.
+- **Each treated unit's row of a custom `effect_matrix` must be its own
+  direct-effect indicator**, so a spillover column cannot leak into the
+  headline effect. `affected_units` may not list the treated unit.
+- **Plots.** `panel`, `full`, `effect`, `spill_top` and `weights` work for
+  `cd`. New `cd` kinds: `spillover` (every exposed unit's effect with its
+  interval) and `kappa` (the structure test by period).
+- **Data.** `load_california_cd(51)` and `load_california_cd(41)` bundle the
+  authors' 50-states-plus-DC panel, treated from 1989, as a `SpillPanel`
+  with the paper's exposed states. `scspill/tests/test_cd.py` checks both
+  fits against the authors' frozen output
+  (`jcao0/synthetic-control-spillover`, commit `86004020`), and their
+  simulation code's statistics, stored in `benchmarks/reference/cao_dowd/`.
+
+### Changed
+
+- **Panel preparation is shared by every model**
+  (`scspill_helpers.setup.prepare_panel_inputs`). It now also rejects, for
+  `sar` too, duplicate unit-period rows and a treatment indicator that is not
+  0/1.
+- **The containers moved next to the code that fills them.**
+  - `PanelInputs` and `SCSPILLEffects` are in `scspill_helpers.containers`.
+  - The `sar` inputs, posterior blocks and fit are in
+    `scspill_helpers.sar.structures` (`SARInputs`, `AlphaPosterior`,
+    `SARPosterior`, `SARFit`).
+  - The old import paths still work, and `SCSPILLInputs` and `SCSPILLFit`
+    remain as aliases.
+- **`SCSPILLEffects` is keyword-only.** Its `sar`-only fields (`att_draws`,
+  `att_plugin`, `propagate_alpha`, `n_draws_used`) are optional, and
+  `interval_kind` records how the bands were built.
+- **`SpillPanel.spatial_w` and `spatial_W` may be `None`.**
+  `SpillPanel.config_kwargs(method=None)` configures `sar` when the panel has
+  spatial weights and `cd` otherwise.
 
 ### Authorship and citation
-
-No functional change.
 
 - **The software has three authors and one citation.** Shosei Sakaguchi and
   Hayato Tagawa have joined the project as co-authors, so `CITATION.cff`, the

@@ -1,20 +1,25 @@
 """Bundled case-study spillover panels for scspill.
 
 Ships the two empirical applications of the ``sar`` model's source article
-(Sakaguchi & Tagawa 2026), plus Cao and Dowd's 51/41-unit California panel.
-The latter has a different sample and intervention date from the SAR
-California example.
+(Sakaguchi & Tagawa 2026) and the Proposition 99 panel of the ``cd`` model's
+source article (Cao & Dowd, arXiv:1902.07343v3). Every loader returns a
+:class:`SpillPanel` whose ``config_kwargs()`` feeds
+:class:`scspill.SCSPILLConfig` directly. The Cao--Dowd panel has a different
+sample and intervention date from the ``sar`` California example.
 
 * :func:`load_california` -- the California Proposition 99 tobacco panel
   (Abadie, Diamond & Hainmueller 2010): 39 states, 1970-2000, treatment in
   1988; rook-contiguity spatial weights.
 * :func:`load_sudan` -- the 2011 Sudan secession panel: 34 African countries,
   2000-2015, treatment in 2011; average bilateral-trade spatial weights.
-* :func:`load_california_cd` -- the Cao--Dowd Proposition 99 panel: 51 or
-  41 regions, 1970-2000, treatment from 1989; labeled affected-unit set.
+* :func:`load_california_cd` -- the Cao--Dowd Proposition 99 panel: 50
+  states plus DC (or 41 of them), 1970-2000, treatment from 1989, with the
+  paper's set of potentially exposed states and no spatial weights.
 
-The SAR CSV files are verbatim copies of that replication package's
-nonproprietary data exports. Both SAR weight objects are stored raw --
+The ``sar`` CSV files are verbatim copies of that replication package's
+nonproprietary data exports, and the Cao--Dowd files of the authors'
+repository (jcao0/synthetic-control-spillover at commit 86004020). Both
+``sar`` weight objects are stored raw --
 row-normalization of ``W`` and sum-normalization of ``w`` happen inside the
 estimator, exactly as in the R package.
 """
@@ -29,53 +34,7 @@ import pandas as pd
 
 from ..exceptions import ScspillDataError
 
-__all__ = ["CDPanel", "SpillPanel", "load_california", "load_california_cd", "load_sudan"]
-
-
-@dataclass(frozen=True)
-class CDPanel:
-    """Cao--Dowd Proposition 99 panel and published exposure structure."""
-
-    df: pd.DataFrame
-    affected_units: tuple[str, ...]
-    specification: int
-
-    def config_kwargs(self) -> dict[str, Any]:
-        """Return inputs for ``SCSPILL({"method": "cd", ...})``."""
-        return {
-            "method": "cd",
-            "df": self.df,
-            "outcome": "cigs",
-            "treat": "treated",
-            "unitid": "state",
-            "time": "year",
-            "affected_units": list(self.affected_units),
-        }
-
-
-def load_california_cd(specification: int = 51) -> CDPanel:
-    """Load the authors' 1970--2000 Proposition 99 panel, treated from 1989.
-
-    ``51`` uses every state and DC with the 12 policy-contaminated states and
-    three neighbors as exposed units. ``41`` removes ten non-neighbor policy
-    states, leaving Arizona, Nevada and Oregon as exposed controls.
-    """
-    if specification not in (41, 51):
-        raise ScspillDataError("Cao--Dowd California specification must be 41 or 51.")
-    root = files("scspill.data").joinpath("files", "cao_dowd")
-    with root.joinpath("cigs_consumption.csv").open("r", encoding="utf-8") as fh:
-        df = pd.read_csv(fh)
-    with root.joinpath("state_list.csv").open("r", encoding="utf-8-sig") as fh:
-        flags = pd.read_csv(fh)
-    policy = set(flags.loc[flags["missing12"] == 1, "state"])
-    neighbors = set(flags.loc[flags["neighbor"] == 1, "state"])
-    if specification == 41:
-        df = df.loc[~df["state"].isin(policy - neighbors)].copy()
-        affected = tuple(sorted(neighbors))
-    else:
-        affected = tuple(sorted(policy | neighbors))
-    df["treated"] = ((df["state"] == "CA") & (df["year"] >= 1989)).astype(int)
-    return CDPanel(df=df, affected_units=affected, specification=specification)
+__all__ = ["SpillPanel", "load_california", "load_california_cd", "load_sudan"]
 
 
 #: Mapping from the R-mangled WDI column headers in ``sudan_panel.csv`` to the
@@ -95,17 +54,22 @@ SUDAN_COLUMN_MAP = {
 class SpillPanel:
     """A bundled case study, ready to feed :class:`scspill.SCSPILLConfig`.
 
+    A panel carries what the models it was published with need: spatial
+    weights for ``sar``, a set of potentially exposed units for ``cd``.
+
     Attributes
     ----------
     df : pd.DataFrame
         Long panel with a 0/1 ``treated`` indicator column (1 for the treated
         unit in post-treatment periods).
-    spatial_w : pd.Series
+    spatial_w : pd.Series or None
         Treated-to-control exposure weights, indexed by donor unit label.
-        Raw (unnormalized); the estimator scales it to sum to one.
-    spatial_W : pd.DataFrame
+        Raw (unnormalized); the estimator scales it to sum to one. ``None``
+        for a panel without spatial weights.
+    spatial_W : pd.DataFrame or None
         Control-to-control spatial weights, indexed and columned by donor unit
-        label. Raw (unnormalized); the estimator row-normalizes it.
+        label. Raw (unnormalized); the estimator row-normalizes it. ``None``
+        for a panel without spatial weights.
     outcome, unitid, time, treat : str
         Column names in ``df``.
     covariates : tuple of str
@@ -119,11 +83,14 @@ class SpillPanel:
     column_map : dict
         Mapping from original CSV headers to the column names in ``df``
         (empty when no renaming was applied).
+    affected_units : tuple
+        Control units that may receive a spillover, as published for the
+        ``cd`` model; empty when none were published.
     """
 
     df: pd.DataFrame
-    spatial_w: pd.Series
-    spatial_W: pd.DataFrame
+    spatial_w: pd.Series | None
+    spatial_W: pd.DataFrame | None
     outcome: str
     unitid: str
     time: str
@@ -133,36 +100,72 @@ class SpillPanel:
     treatment_time: int
     description: str
     column_map: dict[str, str] = field(default_factory=dict)
+    affected_units: tuple[str, ...] = ()
 
-    def config_kwargs(self) -> dict[str, Any]:
+    @property
+    def has_spatial_weights(self) -> bool:
+        """Whether the panel carries the spatial weights ``sar`` needs."""
+        return self.spatial_w is not None and self.spatial_W is not None
+
+    def config_kwargs(self, method: str | None = None) -> dict[str, Any]:
         """Keyword arguments ready to splat into :class:`scspill.SCSPILLConfig`.
+
+        Parameters
+        ----------
+        method : {"sar", "cd"}, optional
+            The model to configure. By default ``"sar"`` when the panel has
+            spatial weights and ``"cd"`` otherwise.
 
         Returns
         -------
         dict
-            ``df``, ``outcome``, ``treat``, ``unitid``, ``time``,
-            ``spatial_w``, ``spatial_W``, and ``covariates``.
+            The column names plus, for ``sar``, ``spatial_w``, ``spatial_W``
+            and ``covariates`` (``method`` is left at its default); for
+            ``cd``, ``method="cd"`` and ``affected_units``.
+
+        Raises
+        ------
+        ScspillDataError
+            When ``method="sar"`` is asked of a panel without spatial weights,
+            or ``method`` is unknown.
 
         Examples
         --------
         ```python
         from scspill import SCSPILL
-        from scspill.data import load_california
+        from scspill.data import load_california, load_california_cd
 
-        panel = load_california()
-        result = SCSPILL({**panel.config_kwargs(), "seed": 1}).fit()
+        sar = SCSPILL({**load_california().config_kwargs(), "seed": 1}).fit()
+        cd = SCSPILL(load_california_cd(51).config_kwargs()).fit()
         ```
         """
-        return {
+        if method is None:
+            method = "sar" if self.has_spatial_weights else "cd"
+        columns = {
             "df": self.df,
             "outcome": self.outcome,
             "treat": self.treat,
             "unitid": self.unitid,
             "time": self.time,
-            "spatial_w": self.spatial_w,
-            "spatial_W": self.spatial_W,
-            "covariates": list(self.covariates),
         }
+        if method == "sar":
+            if not self.has_spatial_weights:
+                raise ScspillDataError(
+                    "This panel has no spatial weights, which method='sar' requires."
+                )
+            return {
+                **columns,
+                "spatial_w": self.spatial_w,
+                "spatial_W": self.spatial_W,
+                "covariates": list(self.covariates),
+            }
+        if method == "cd":
+            return {
+                "method": "cd",
+                **columns,
+                "affected_units": list(self.affected_units),
+            }
+        raise ScspillDataError(f"Unknown method {method!r}; expected 'sar' or 'cd'.")
 
 
 def _read_csv(name: str) -> pd.DataFrame:
@@ -333,4 +336,85 @@ def load_sudan(raw_names: bool = False) -> SpillPanel:
             "values. Source: scspill replication package, nonproprietary export."
         ),
         column_map=column_map,
+    )
+
+
+def load_california_cd(specification: int = 51) -> SpillPanel:
+    """Load Cao and Dowd's Proposition 99 panel: 1970--2000, treated from 1989.
+
+    The panel holds per-capita cigarette consumption (``cigs``) for the 50
+    U.S. states plus the District of Columbia, as used in Cao & Dowd
+    (arXiv:1902.07343v3, Section 6). California is treated from 1989, the
+    first full year of Proposition 99 (19 pre-treatment years, 12
+    post-treatment years). It is a different sample from
+    :func:`load_california`, which follows Abadie et al. (2010).
+
+    ``affected_units`` are the states the paper allows to receive a
+    spillover:
+
+    * ``51`` keeps every state and DC; the 13 exposed units are the twelve
+      that passed their own tobacco-control policies (Arizona and Oregon
+      among them) plus Nevada, so all three of California's neighbours are
+      included.
+    * ``41`` drops the ten policy states that do not border California,
+      leaving Arizona, Nevada and Oregon as the exposed controls.
+
+    The panel has no spatial weights, so ``config_kwargs()`` configures
+    ``method="cd"``.
+
+    Parameters
+    ----------
+    specification : {51, 41}, default 51
+        Number of units in the sample.
+
+    Returns
+    -------
+    SpillPanel
+
+    Examples
+    --------
+    ```python
+    from scspill import SCSPILL
+    from scspill.data import load_california_cd
+
+    panel = load_california_cd(51)
+    result = SCSPILL(panel.config_kwargs()).fit()
+    result.effects_panel.loc[1990, ["CA", "NV"]]
+    ```
+    """
+    if specification not in (41, 51):
+        raise ScspillDataError("Cao--Dowd California specification must be 41 or 51.")
+    root = files("scspill.data").joinpath("files", "cao_dowd")
+    with root.joinpath("cigs_consumption.csv").open("r", encoding="utf-8") as fh:
+        df = pd.read_csv(fh)
+    with root.joinpath("state_list.csv").open("r", encoding="utf-8-sig") as fh:
+        flags = pd.read_csv(fh)
+    policy = set(flags.loc[flags["missing12"] == 1, "state"])
+    neighbors = set(flags.loc[flags["neighbor"] == 1, "state"])
+    if specification == 41:
+        df = df.loc[~df["state"].isin(policy - neighbors)].reset_index(drop=True)
+        affected = tuple(sorted(neighbors))
+    else:
+        affected = tuple(sorted(policy | neighbors))
+    treated_unit = "CA"
+    treatment_time = 1989
+    df["treated"] = ((df["state"] == treated_unit) & (df["year"] >= treatment_time)).astype(int)
+    return SpillPanel(
+        df=df,
+        spatial_w=None,
+        spatial_W=None,
+        outcome="cigs",
+        unitid="state",
+        time="year",
+        treat="treated",
+        covariates=(),
+        treated_unit=treated_unit,
+        treatment_time=treatment_time,
+        description=(
+            f"Cao & Dowd Proposition 99 panel ({specification} units): per-capita "
+            "cigarette consumption, 1970-2000, California treated from 1989, "
+            "with the paper's set of potentially exposed states. Source: "
+            "jcao0/synthetic-control-spillover at commit 86004020."
+        ),
+        affected_units=affected,
     )

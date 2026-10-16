@@ -33,8 +33,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ....exceptions import ScspillDataError
-from ..structures import SARPosterior
 from ._kernels import FLO, _chol_sym, _clip, _ig, _rho_loglik, _sym, resolve_backend
+from .structures import SARPosterior
 
 
 def rho_stability_bound(Wn: np.ndarray) -> float:

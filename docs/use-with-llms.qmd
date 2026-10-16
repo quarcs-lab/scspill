@@ -52,7 +52,7 @@ result.plot(kind="panel")   # counterfactual | effect | top spillovers
 ```
 
 For Cao–Dowd, pass `load_california_cd(51).config_kwargs()` to `SCSPILL`;
-the `CDResults` it returns has `effects_panel`, `effect_ci`,
+the `SCSPILLResults` it returns (`method="cd"`) has `effects_panel`, `effect_ci`,
 `pointwise_p_values`, `test_hypothesis` and `kappa_test`. See the
 [`cd` model page](models/cd.qmd).
 

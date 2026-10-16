@@ -1,309 +1,241 @@
-"""Typed containers for the SCSPILL estimator.
+"""The public result of a SCSPILL fit.
 
-Frozen dataclasses for the estimation inputs and posterior blocks, plus the
-:class:`SCSPILLResults` pydantic model that exposes the standardized
+:class:`SCSPILLResults` is the pydantic model that exposes the standardized
 effect-result surface (``att``, ``att_ci``, ``counterfactual``, ``gap``,
-``donor_weights``) alongside the estimator-specific posterior objects.
+``donor_weights``) alongside each model's typed fit. The dataclass containers
+live next to the code that fills them -- the shared ones in
+:mod:`.containers`, each model's in its subpackage -- and are re-exported here
+under their historical import path.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field, model_validator
 
 from ...config_models import BaseEstimatorResults
+from ...exceptions import ScspillEstimationError
+from .cd.structures import CDFit, CDInputs, CDTestResult
+from .containers import PanelInputs, SCSPILLEffects, _freeze_array
+from .sar.structures import (
+    AlphaPosterior,
+    SARFit,
+    SARInputs,
+    SARPosterior,
+    SCSPILLFit,
+    SCSPILLInputs,
+)
 
-
-def _freeze_array(arr: np.ndarray | None) -> None:
-    """Mark an array read-only so frozen containers stay effectively immutable."""
-    if isinstance(arr, np.ndarray):
-        arr.setflags(write=False)
-
-
-@dataclass(frozen=True)
-class SCSPILLInputs:
-    """Prepared estimation inputs for the SCSPILL estimator.
-
-    Attributes
-    ----------
-    Y0 : np.ndarray
-        Treated-unit outcome path, shape ``(T,)``.
-    Yc : np.ndarray
-        Control-unit outcome matrix, shape ``(T, N)`` in ``control_labels``
-        column order.
-    Wn : np.ndarray
-        Row-normalized control-to-control spatial weight matrix, ``(N, N)``.
-    wn : np.ndarray
-        Sum-normalized treated-to-control exposure vector, ``(N,)``.
-    W_raw, w_raw : np.ndarray
-        The user-supplied spatial weights before normalization (label-aligned).
-    T0 : int
-        Number of pre-treatment periods.
-    X : np.ndarray or None
-        Covariate cube ``(T, N, K)`` for the control units, or ``None``.
-    treated_label : Any
-        Label of the treated unit.
-    control_labels : tuple
-        Donor labels in column order of ``Yc`` / ``Wn`` / ``wn``.
-    time_labels : np.ndarray
-        Sorted time labels, length ``T``.
-    covariate_names : tuple of str
-        Names of the covariate columns stacked into ``X``.
-    """
-
-    Y0: np.ndarray
-    Yc: np.ndarray
-    Wn: np.ndarray
-    wn: np.ndarray
-    W_raw: np.ndarray
-    w_raw: np.ndarray
-    T0: int
-    X: np.ndarray | None
-    treated_label: Any
-    control_labels: tuple[Any, ...]
-    time_labels: np.ndarray
-    covariate_names: tuple[str, ...] = ()
-
-    def __post_init__(self) -> None:
-        """Validate shape coherence and freeze the arrays."""
-        N = len(self.control_labels)
-        T = self.Y0.shape[0]
-        assert self.Yc.shape == (T, N), "Yc shape does not match (T, N)"
-        assert self.Wn.shape == (N, N), "Wn shape does not match (N, N)"
-        assert self.wn.shape == (N,), "wn shape does not match (N,)"
-        assert self.time_labels.shape[0] == T, "time_labels length does not match T"
-        if self.X is not None:
-            assert self.X.shape[:2] == (T, N), "X shape does not match (T, N, K)"
-        for arr in (
-            self.Y0,
-            self.Yc,
-            self.Wn,
-            self.wn,
-            self.W_raw,
-            self.w_raw,
-            self.X,
-            self.time_labels,
-        ):
-            _freeze_array(arr)
-
-    @property
-    def N(self) -> int:
-        """Number of control units."""
-        return len(self.control_labels)
-
-    @property
-    def T(self) -> int:
-        """Total number of time periods."""
-        return int(self.Y0.shape[0])
-
-    @property
-    def T1(self) -> int:
-        """Number of post-treatment periods."""
-        return self.T - self.T0
-
-    @property
-    def K(self) -> int:
-        """Number of covariates."""
-        return 0 if self.X is None else int(self.X.shape[2])
-
-    @property
-    def time_pre(self) -> np.ndarray:
-        """Pre-treatment time labels."""
-        return self.time_labels[: self.T0]
-
-    @property
-    def time_post(self) -> np.ndarray:
-        """Post-treatment time labels."""
-        return self.time_labels[self.T0 :]
-
-
-@dataclass(frozen=True)
-class AlphaPosterior:
-    """Step-1 posterior: horseshoe draws of the synthetic weights ``alpha``.
-
-    Attributes
-    ----------
-    draws : np.ndarray
-        Post-burn ``alpha`` draws in original outcome units, shape ``(M, N)``.
-    sigma2 : np.ndarray
-        Post-burn draws of the Step-1 error variance (on the standardized
-        scale), shape ``(M,)``.
-    alpha_hat : np.ndarray
-        Posterior mean of ``alpha``, shape ``(N,)`` -- the plug-in weights
-        used by Step 2.
-    iters, burn : int
-        Total iterations and burn-in of the sampler.
-    """
-
-    draws: np.ndarray
-    sigma2: np.ndarray
-    alpha_hat: np.ndarray
-    iters: int
-    burn: int
-
-    def __post_init__(self) -> None:
-        """Freeze the draw arrays."""
-        for arr in (self.draws, self.sigma2, self.alpha_hat):
-            _freeze_array(arr)
-
-
-@dataclass(frozen=True)
-class SARPosterior:
-    """Step-2 posterior: the SAR block conditional on ``alpha_hat``.
-
-    Attributes
-    ----------
-    rho : np.ndarray
-        Post-burn draws of the spillover intensity, shape ``(M,)``.
-    sigma2 : np.ndarray
-        Post-burn draws of the innovation variance, shape ``(M,)``.
-    beta : np.ndarray or None
-        Post-burn draws of the covariate coefficients, shape ``(M, K)``, or
-        ``None`` when there are no covariates.
-    rho_hat : float
-        Posterior mean of ``rho``.
-    acc_rho : float
-        Post-burn acceptance rate of the random-walk Metropolis step.
-    step_rho_final : float
-        Random-walk step size after burn-in adaptation (equals the initial
-        ``step_rho`` when adaptation is off).
-    rho_bound : float
-        Half-width of the admissible ``rho`` support,
-        ``0.95 / max(1, max |eig(Wn)|)``.
-    beta_prior : str
-        Prior used for ``beta``: ``"horseshoe"`` (paper) or ``"ridge"``
-        (R-code compatibility).
-    p_factors : int
-        Number of AR(1) latent factors in the error model.
-    iters, burn : int
-        Total iterations and burn-in of the sampler.
-    """
-
-    rho: np.ndarray
-    sigma2: np.ndarray
-    beta: np.ndarray | None
-    rho_hat: float
-    acc_rho: float
-    step_rho_final: float
-    rho_bound: float
-    beta_prior: str
-    p_factors: int
-    iters: int
-    burn: int
-
-    def __post_init__(self) -> None:
-        """Freeze the draw arrays."""
-        for arr in (self.rho, self.sigma2, self.beta):
-            _freeze_array(arr)
-
-
-@dataclass(frozen=True)
-class SCSPILLEffects:
-    """Posterior treatment and spillover effects (Theorems 3.1-3.2).
-
-    All paths cover the full sample (pre and post periods); pre-period rows of
-    the spillover panel are fit residuals by construction, not causal
-    spillovers.
-
-    Attributes
-    ----------
-    att : float
-        Posterior mean of the average treatment effect on the treated
-        (mean over the ``att_draws``).
-    att_ci : tuple of float
-        Equal-tailed credible interval for the ATT at level ``ci_level``.
-    att_draws : np.ndarray
-        One ATT draw per retained posterior draw, shape ``(M,)``.
-    att_plugin : float
-        ATT evaluated at the posterior means ``(alpha_hat, rho_hat)``.
-    att_scm : float
-        ATT of the ``rho = 0`` special case (plain Bayesian horseshoe SCM at
-        ``alpha_hat``) -- the no-spillover comparator.
-    cf_mean, cf_lower, cf_upper : np.ndarray
-        Posterior mean and pointwise credible band of the treated unit's
-        untreated counterfactual path, each shape ``(T,)``.
-    spill_mean, spill_lower, spill_upper : pd.DataFrame
-        Posterior mean and pointwise credible band of the spillover effects,
-        each ``(T, N)`` indexed by time labels with donor-label columns.
-    ci_level : float
-        Credible level of all intervals.
-    propagate_alpha : bool
-        True when effect draws paired ``(alpha^(m), rho^(m))``; False when
-        ``alpha`` was held at ``alpha_hat`` (the R package's convention).
-    n_draws_used : int
-        Number of posterior draws swept in the effects computation.
-    """
-
-    att: float
-    att_ci: tuple[float, float]
-    att_draws: np.ndarray
-    att_plugin: float
-    att_scm: float
-    cf_mean: np.ndarray
-    cf_lower: np.ndarray
-    cf_upper: np.ndarray
-    spill_mean: pd.DataFrame
-    spill_lower: pd.DataFrame
-    spill_upper: pd.DataFrame
-    ci_level: float
-    propagate_alpha: bool
-    n_draws_used: int
-
-    def __post_init__(self) -> None:
-        """Freeze the draw arrays."""
-        for arr in (self.att_draws, self.cf_mean, self.cf_lower, self.cf_upper):
-            _freeze_array(arr)
-
-
-@dataclass(frozen=True)
-class SCSPILLFit:
-    """Bundle of everything the pipeline produced (pre-results assembly)."""
-
-    inputs: SCSPILLInputs
-    alpha_posterior: AlphaPosterior
-    sar_posterior: SARPosterior
-    effects: SCSPILLEffects
-    scm_weights: dict[str, float] = field(default_factory=dict)
-    mcmc_summary_table: pd.DataFrame | None = None
+__all__ = [
+    "AlphaPosterior",
+    "CDFit",
+    "CDInputs",
+    "CDTestResult",
+    "PanelInputs",
+    "SARFit",
+    "SARInputs",
+    "SARPosterior",
+    "SCSPILLEffects",
+    "SCSPILLFit",
+    "SCSPILLInputs",
+    "SCSPILLResults",
+    "_freeze_array",
+]
 
 
 class SCSPILLResults(BaseEstimatorResults):
-    """Standardized results of the SCSPILL estimator.
+    """Standardized results of a SCSPILL fit, for any model.
 
     Subclasses :class:`scspill.config_models.BaseEstimatorResults`, so the
     flat effect surface (``att``, ``att_ci``, ``counterfactual``, ``gap``,
     ``donor_weights``, ``pre_rmse``, ``.plot()``) resolves through the shared
-    contract, while the Bayesian detail lives in typed fields:
+    contract for every model. The rest is typed:
 
-    * :attr:`inputs` -- the prepared panel and spatial weights;
-    * :attr:`alpha_posterior` / :attr:`sar_posterior` -- the two posterior
-      blocks with their full draw arrays;
-    * :attr:`effects_detail` -- ATT draws, counterfactual band, and the
-      per-donor spillover panel;
-    * :attr:`scm_weights` -- classical simplex-SCM comparator weights.
+    * :attr:`method` -- the model that produced the fit; it mirrors
+      ``SCSPILLConfig.method`` and the suffix of
+      ``method_details.method_name`` (``"SCSPILL/<method>"``);
+    * :attr:`inputs` -- the prepared panel (with the spatial weights for
+      ``sar``, the exposure matrix for ``cd``);
+    * :attr:`effects_detail` -- the cross-model effect contract: the
+      counterfactual path and band, and the time-by-control spillover panel
+      with its band;
+    * :attr:`sar` / :attr:`cd` -- the model's own fit. Exactly the slot named
+      by :attr:`method` is set; the other is ``None``.
 
-    :attr:`method` records which spillover model produced the fit. It mirrors
-    ``SCSPILLConfig.method`` and the suffix of
-    ``method_details.method_name`` (``"SCSPILL/<method>"``). Only ``"sar"``
-    uses this result; another model declares its own estimation blocks
-    alongside :attr:`alpha_posterior` / :attr:`sar_posterior`, which are
-    SAR-specific, while :attr:`inputs`, :attr:`effects_detail` and the flat
-    effect surface are the cross-model contract.
+    Model-specific accessors read the matching slot -- ``alpha_hat``,
+    ``rho_hat``, ``diagnostics()`` for ``sar``; ``effects_panel``,
+    ``effect_ci``, ``test_hypothesis()`` for ``cd`` -- and raise
+    :class:`AttributeError` on a result of the other model.
     """
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, extra="forbid")
 
-    method: str = "sar"
-    inputs: SCSPILLInputs
-    alpha_posterior: AlphaPosterior
-    sar_posterior: SARPosterior
+    method: Literal["sar", "cd"] = "sar"
+    inputs: SARInputs | CDInputs
     effects_detail: SCSPILLEffects
     scm_weights: dict[str, float] | None = None
-    mcmc_summary_table: pd.DataFrame | None = None
+    sar: SARFit | None = Field(default=None, exclude=True, repr=False)
+    cd: CDFit | None = Field(default=None, exclude=True, repr=False)
+
+    @model_validator(mode="after")
+    def _check_model_slot(self) -> SCSPILLResults:
+        """Check that exactly the slot named by ``method`` holds the fit."""
+        expected = {"sar": (SARFit, SARInputs), "cd": (CDFit, CDInputs)}
+        for name, (fit_type, inputs_type) in expected.items():
+            fit = getattr(self, name)
+            if name == self.method:
+                if not isinstance(fit, fit_type) or not isinstance(self.inputs, inputs_type):
+                    raise ScspillEstimationError(
+                        f"A method={self.method!r} result needs its {fit_type.__name__} "
+                        f"and {inputs_type.__name__}."
+                    )
+            elif fit is not None:
+                raise ScspillEstimationError(
+                    f"A method={self.method!r} result must not carry a {name!r} fit."
+                )
+        return self
+
+    # ------------------------------------------------------------------
+    # Shared across models
+    # ------------------------------------------------------------------
+    @property
+    def treated_labels(self) -> tuple[Any, ...]:
+        """Every treated unit; the first is the headline of the effect surface."""
+        return self.inputs.treated_labels
+
+    @property
+    def unit_labels(self) -> tuple[Any, ...]:
+        """Every unit: the treated units first, then the controls."""
+        return self.inputs.unit_labels
+
+    @property
+    def att_scm(self) -> float | None:
+        """ATT of the no-spillover synthetic-control comparator."""
+        return self.effects_detail.att_scm
+
+    @property
+    def att_by_unit(self) -> dict[Any, float]:
+        """Average post-treatment effect on every treated unit."""
+        if self.cd is not None:
+            return dict(self.cd.att_by_unit)
+        return {self.inputs.treated_label: float(self.effects_detail.att)}
+
+    # ------------------------------------------------------------------
+    # method="cd"
+    # ------------------------------------------------------------------
+    def _require_cd(self, name: str) -> CDFit:
+        """Return the ``cd`` fit, or raise AttributeError naming the accessor."""
+        if self.cd is None:
+            raise AttributeError(
+                f"{name!r} is defined only for method='cd'; this result has method={self.method!r}."
+            )
+        return self.cd
+
+    @property
+    def effects_panel(self) -> pd.DataFrame:
+        """Estimated effect on every unit by post period (``cd`` only).
+
+        Treated columns are direct effects, control columns spillovers.
+        """
+        return self._require_cd("effects_panel").effects_panel
+
+    @property
+    def effect_ci(self) -> dict[Any, pd.DataFrame]:
+        """Pointwise interval of every unit's effect, by ``ci_method`` (``cd`` only)."""
+        return self._require_cd("effect_ci").effect_ci
+
+    @property
+    def pointwise_ci(self) -> dict[Any, pd.DataFrame]:
+        """Pointwise intervals by P-test inversion (``cd`` only)."""
+        return self._require_cd("pointwise_ci").pointwise_ci
+
+    @property
+    def published_ci(self) -> dict[Any, pd.DataFrame]:
+        """Pointwise intervals by the authors' signed-quantile rule (``cd`` only)."""
+        return self._require_cd("published_ci").published_ci
+
+    @property
+    def pointwise_p_values(self) -> pd.DataFrame:
+        """P value of every unit's effect by post period (``cd`` only)."""
+        return self._require_cd("pointwise_p_values").pointwise_p_values
+
+    @property
+    def placebo_effects(self) -> pd.DataFrame:
+        """Pre-treatment placebo effects, the P-test references (``cd`` only)."""
+        return self._require_cd("placebo_effects").placebo_effects
+
+    @property
+    def pre_residuals(self) -> pd.DataFrame:
+        """Pre-treatment SCM residuals of every unit (``cd`` only)."""
+        return self._require_cd("pre_residuals").pre_residuals
+
+    @property
+    def kappa_test(self) -> dict[Any, CDTestResult]:
+        """The ``kappa_A`` structure test by post period (``cd`` only)."""
+        return self._require_cd("kappa_test").kappa_test
+
+    @property
+    def scm_matrix(self) -> pd.DataFrame:
+        """All-unit SCM weight matrix ``B`` (``cd`` only)."""
+        return self._require_cd("scm_matrix").scm_matrix
+
+    @property
+    def intercepts(self) -> pd.Series:
+        """Intercepts of every unit's SCM equation (``cd`` only)."""
+        return self._require_cd("intercepts").intercepts
+
+    @property
+    def effect_matrix(self) -> pd.DataFrame:
+        """The exposure matrix ``A`` used by the fit (``cd`` only)."""
+        return self._require_cd("effect_matrix").inputs.A
+
+    def test_hypothesis(
+        self,
+        C: np.ndarray | pd.DataFrame,
+        *,
+        d: np.ndarray | float | None = None,
+        period: Any | None = None,
+        weight: np.ndarray | Literal["inverse_covariance"] | None = None,
+        quantile_method: Literal["empirical", "linear"] | None = None,
+    ) -> CDTestResult:
+        """Test ``C @ alpha_t = d`` by the pre-treatment P distribution (``cd`` only).
+
+        See :meth:`scspill.utils.scspill_helpers.cd.structures.CDFit.test_hypothesis`.
+        """
+        return self._require_cd("test_hypothesis").test_hypothesis(
+            C, d=d, period=period, weight=weight, quantile_method=quantile_method
+        )
+
+    # ------------------------------------------------------------------
+    # method="sar"
+    # ------------------------------------------------------------------
+
+    def _require_sar(self, name: str) -> SARFit:
+        """Return the ``sar`` fit, or raise AttributeError naming the accessor."""
+        if self.sar is None:
+            raise AttributeError(
+                f"{name!r} is defined only for method='sar'; this result has "
+                f"method={self.method!r}."
+            )
+        return self.sar
+
+    @property
+    def alpha_posterior(self) -> AlphaPosterior:
+        """Step-1 posterior block of the synthetic weights (``sar`` only)."""
+        return self._require_sar("alpha_posterior").alpha_posterior
+
+    @property
+    def sar_posterior(self) -> SARPosterior:
+        """Step-2 posterior block of the SAR process (``sar`` only)."""
+        return self._require_sar("sar_posterior").sar_posterior
+
+    @property
+    def mcmc_summary_table(self) -> pd.DataFrame | None:
+        """Precomputed posterior summary table (``sar`` only)."""
+        return self._require_sar("mcmc_summary_table").mcmc_summary_table
 
     # ------------------------------------------------------------------
     # Convenience accessors over the posterior blocks
@@ -440,8 +372,9 @@ class SCSPILLResults(BaseEstimatorResults):
         kind : str, default "auto"
             ``"auto"`` / ``"counterfactual"`` / ``"gap"`` use the shared
             effect-plot contract; ``"panel"``, ``"full"``, ``"effect"``,
-            ``"spill_top"``, ``"weights"``, ``"rho"``, and ``"trace"`` route
-            to :func:`scspill.utils.scspill_helpers.plotter.plot_scspill`.
+            ``"spill_top"``, ``"weights"`` (both models), ``"rho"``,
+            ``"trace"`` (``sar``), ``"spillover"`` and ``"kappa"`` (``cd``)
+            route to :func:`scspill.utils.scspill_helpers.plotter.plot_scspill`.
         ax : matplotlib Axes, optional
             Draw into an existing axis (single-panel kinds only).
         **overrides

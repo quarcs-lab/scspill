@@ -20,15 +20,15 @@ from threadpoolctl import threadpool_limits
 
 from ...diagnostics import mcmc_summary
 from ...scm_baseline import classical_scm_weights
-from ..structures import SCSPILLFit, SCSPILLInputs
 from ._kernels import resolve_backend
 from .effects import RhoSolver, posterior_effects
 from .sampler_alpha import hs_alpha_gibbs
 from .sampler_sar import sar_step2_sampler
+from .structures import SARFit, SARInputs
 
 
 def run_scspill(
-    inputs: SCSPILLInputs,
+    inputs: SARInputs,
     *,
     p_factors: int = 1,
     m_iter: int = 2000,
@@ -45,7 +45,7 @@ def run_scspill(
     backend: str = "auto",
     seed: int | None = None,
     verbose: bool = False,
-) -> SCSPILLFit:
+) -> SARFit:
     """Fit the ``sar`` model: two-step Bayesian inference for the SAR spillover SCM.
 
     Parameters mirror :class:`scspill.config_models.SCSPILLConfig`; see its
@@ -53,7 +53,7 @@ def run_scspill(
 
     Parameters
     ----------
-    inputs : SCSPILLInputs
+    inputs : SARInputs
         Prepared estimation inputs from
         :func:`~scspill.utils.scspill_helpers.setup.prepare_scspill_inputs`.
     p_factors, m_iter, burn, step_rho, adapt_rho, target_accept_rho : see config
@@ -67,7 +67,7 @@ def run_scspill(
 
     Returns
     -------
-    SCSPILLFit
+    SARFit
         The posterior blocks, effect summaries, comparator weights, and the
         default diagnostics table.
     """
@@ -130,7 +130,7 @@ def run_scspill(
         chains[f"alpha[{labels[j]}]"] = alpha_post.draws[:, j]
     summary = mcmc_summary(chains)
 
-    return SCSPILLFit(
+    return SARFit(
         inputs=inputs,
         alpha_posterior=alpha_post,
         sar_posterior=sar_post,

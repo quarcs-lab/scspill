@@ -24,7 +24,7 @@ express at all.
 | Model | `method` | Reference | Class | Docs |
 |---|---|---|---|---|
 | Bayesian spatial-autoregressive spillover SCM | `"sar"` | [Sakaguchi & Tagawa (2026)](https://doi.org/10.1093/ectj/utag006), *The Econometrics Journal* | `SCSPILL` | [`sar`](https://quarcs-lab.github.io/scspill/models/sar.html) |
-| SCM with spillover effects | `"cd"` | [Cao & Dowd, v4](https://arxiv.org/html/1902.07343v4) | `SCSPILL` | [`cd`](https://quarcs-lab.github.io/scspill/models/cd.html) |
+| SCM with spillover effects | `"cd"` | [Cao & Dowd (arXiv:1902.07343v3)](https://arxiv.org/abs/1902.07343v3) | `SCSPILL` | [`cd`](https://quarcs-lab.github.io/scspill/models/cd.html) |
 
 `sar` routes spillovers through spatial weights you
 supply, scaled by a single intensity ρ that is estimated rather than assumed,

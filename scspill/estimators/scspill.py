@@ -1,31 +1,35 @@
-"""Dispatch spillover SCM models selected by ``method``.
+"""The SCSPILL estimator: spillover-aware synthetic control models.
 
-The default ``sar`` model implements:
+One estimator, several models, selected by ``SCSPILLConfig.method``:
 
+``"sar"`` (default)
     Sakaguchi, S., & Tagawa, H. (2026). "Identification and Bayesian
     Inference for Synthetic Control Methods with Spillover Effects." The
     Econometrics Journal. https://doi.org/10.1093/ectj/utag006
 
-The method relaxes SUTVA: the treatment can spill over to the donor pool
-through a spatial-autoregressive structure with user-supplied weights
-``(w, W)`` and a single spillover intensity ``rho``. Both the treatment
-effect on the treated unit and the spillover effect received by every
-control unit are identified from ``(alpha, rho, w, W)`` alone, and are
-estimated with a two-step Bayesian sampler: a horseshoe Gibbs sampler for
-the unconstrained synthetic weights ``alpha`` on the pre-treatment fit,
-then a SAR block (latent AR(1) factors, covariates, random-walk Metropolis
-for ``rho``) conditional on the posterior mean of ``alpha``. At ``rho = 0``
-the method collapses exactly to the Bayesian horseshoe synthetic control.
+    The treatment can spill over to the donor pool through a
+    spatial-autoregressive structure with user-supplied weights ``(w, W)``
+    and a single spillover intensity ``rho``; a two-step Bayesian sampler
+    estimates the synthetic weights and ``rho``. At ``rho = 0`` it collapses
+    exactly to the Bayesian horseshoe synthetic control.
 
-See ``scspill.utils.scspill_helpers.sar`` for this model's algorithmic
-pieces, and ``scspill.utils`` for what every spillover model shares.
+``"cd"``
+    Cao, J., & Dowd, C. "Estimation and Inference for Synthetic Control
+    Methods with Spillover Effects." arXiv:1902.07343v3.
+
+    Every unit gets an intercept-adjusted simplex synthetic control; a known
+    exposure structure then separates the direct effect from the spillovers
+    in every post-treatment period, with end-of-sample P-test inference.
+
+Both models share panel preparation, the exception contract, the result
+type, and plotting; see ``scspill.utils.scspill_helpers.sar`` and
+``scspill.utils.scspill_helpers.cd`` for each model's algorithmic pieces.
 """
 
 from __future__ import annotations
 
 from pydantic import ValidationError
 
-from ..config_models import MethodDetailsResults
 from ..exceptions import (
     ScspillConfigError,
     ScspillDataError,
@@ -33,34 +37,34 @@ from ..exceptions import (
     ScspillPlottingError,
 )
 from ..utils.datautils import balance
-from ..utils.results_helpers import build_effect_submodels, make_weights_results
-from ..utils.scspill_helpers.cd import CDConfig, CDResults, fit_cd
+from ..utils.scspill_helpers.cd import build_cd_report, prepare_cd_inputs, run_cd
 from ..utils.scspill_helpers.config import SCSPILLConfig
-from ..utils.scspill_helpers.sar.inference import build_inference, prediction_interval_spec
 from ..utils.scspill_helpers.sar.pipeline import run_scspill
-from ..utils.scspill_helpers.setup import prepare_scspill_inputs
+from ..utils.scspill_helpers.sar.report import build_sar_report
+from ..utils.scspill_helpers.sar.setup import prepare_sar_inputs
+from ..utils.scspill_helpers.setup import prepare_panel_inputs
 from ..utils.scspill_helpers.structures import SCSPILLResults
 
 
 class SCSPILL:
     """Spillover-aware synthetic control estimator (models ``sar`` and ``cd``).
 
-    The default ``sar`` fit is the Bayesian spatial-autoregressive model of
-    Sakaguchi and Tagawa (2026). ``method="cd"`` fits the Cao--Dowd (2019,
-    v4) all-unit SCM and end-of-sample inference.
+    The default ``method="sar"`` fits the Bayesian spatial-autoregressive
+    model of Sakaguchi and Tagawa (2026); ``method="cd"`` fits Cao and Dowd's
+    all-unit SCM with a known exposure structure and end-of-sample P-test
+    inference (arXiv:1902.07343v3). Both return a :class:`SCSPILLResults`.
 
     Parameters
     ----------
-    config : SCSPILLConfig, CDConfig, or dict
+    config : SCSPILLConfig or dict
         The estimation configuration; a dict is coerced into
-        :class:`scspill.config_models.SCSPILLConfig` or ``CDConfig`` according
-        to ``method``.
+        :class:`scspill.config_models.SCSPILLConfig`.
 
     Examples
     --------
     ```python
     from scspill import SCSPILL
-    from scspill.data import load_california
+    from scspill.data import load_california, load_california_cd
 
     panel = load_california()
     result = SCSPILL(
@@ -69,23 +73,20 @@ class SCSPILL:
     result.att, result.att_ci
     result.rho_hat, result.rho_ci
     result.spillover_panel["Nevada"]
+
+    cd = SCSPILL(load_california_cd(51).config_kwargs()).fit()
+    cd.effects_panel.loc[1990, ["CA", "NV"]], cd.effect_ci["CA"]
     ```
     """
 
-    def __init__(self, config: SCSPILLConfig | CDConfig | dict) -> None:
+    def __init__(self, config: SCSPILLConfig | dict) -> None:
         if isinstance(config, dict):
             try:
-                config = (
-                    CDConfig(**config)
-                    if config.get("method", "sar") == "cd"
-                    else SCSPILLConfig(**config)
-                )
+                config = SCSPILLConfig(**config)
             except ValidationError as exc:
                 raise ScspillConfigError(f"Invalid SCSPILL configuration: {exc}") from exc
-        if not isinstance(config, (SCSPILLConfig, CDConfig)):
-            raise ScspillConfigError(
-                "config must be a SCSPILLConfig, CDConfig, or a dict of fields."
-            )
+        if not isinstance(config, SCSPILLConfig):
+            raise ScspillConfigError("config must be a SCSPILLConfig or a dict of its fields.")
         self.config = config
         # Convenience attribute unpacking (mlsynth convention).
         self.df = config.df
@@ -96,137 +97,97 @@ class SCSPILL:
         self.method = config.method
         self.display_graphs = config.display_graphs
 
-    def fit(self) -> SCSPILLResults | CDResults:
-        """Estimate the model and return standardized results.
+    def fit(self) -> SCSPILLResults:
+        """Estimate the selected model and return standardized results.
 
-        Runs the balance check, panel preparation, the two-step sampler, the
-        posterior effect sweep, and (optionally) the default plot panel.
+        Runs the balance check and panel preparation shared by every model,
+        the model's own estimation (``sar``: the two-step sampler and the
+        posterior effect sweep; ``cd``: the all-unit SCM equations, the
+        effects, and the P-test inference), and (optionally) the default plot
+        panel.
 
         Returns
         -------
         SCSPILLResults
+            With the model's fit in the slot named by ``method``.
 
         Raises
         ------
         ScspillDataError
             On invalid panel data or misaligned spatial weights.
         ScspillEstimationError
-            On sampler or effect-computation failure.
+            On an estimation failure (including an unidentified ``cd``
+            exposure structure).
         ScspillPlottingError
             On plot generation failure (only when ``display_graphs``).
         """
         cfg = self.config
-
-        if isinstance(cfg, CDConfig):
-            cd_result = fit_cd(cfg)
-            if cfg.display_graphs:
-                cd_result.plot(kind="auto")
-            return cd_result
+        sar = cfg.method == "sar"
 
         try:
             balance(cfg.df, cfg.unitid, cfg.time)
-            inputs = prepare_scspill_inputs(
+            panel = prepare_panel_inputs(
                 cfg.df,
                 cfg.outcome,
                 cfg.treat,
                 cfg.unitid,
                 cfg.time,
-                cfg.spatial_W,
-                cfg.spatial_w,
-                covariates=cfg.covariates,
+                covariates=cfg.covariates if sar else None,
+                min_pre=2 if sar else 3,
+                min_controls=3 if sar else 2,
+                require_persistent=not sar,
             )
+            if sar:
+                sar_inputs = prepare_sar_inputs(panel, cfg.spatial_W, cfg.spatial_w)
+            else:
+                cd_inputs = prepare_cd_inputs(
+                    panel,
+                    spillover_structure=cfg.spillover_structure,
+                    affected_units=cfg.affected_units,
+                    effect_matrix=cfg.effect_matrix,
+                )
         except (ScspillDataError, ScspillConfigError):
             raise
         except Exception as exc:  # pragma: no cover - defensive translation
             raise ScspillDataError(f"SCSPILL data preparation failed: {exc}") from exc
 
         try:
-            if cfg.method != "sar":  # pragma: no cover - pydantic rejects this first
-                raise ScspillConfigError(f"SCSPILL: unknown method {cfg.method!r}.")
-            fit = run_scspill(
-                inputs,
-                p_factors=cfg.p_factors,
-                m_iter=cfg.m_iter,
-                burn=cfg.burn,
-                step_rho=cfg.step_rho,
-                adapt_rho=cfg.adapt_rho,
-                target_accept_rho=cfg.target_accept_rho,
-                beta_prior=cfg.beta_prior,
-                propagate_alpha=cfg.propagate_alpha,
-                a0=cfg.a0,
-                b0=cfg.b0,
-                ci=cfg.ci,
-                max_effect_draws=cfg.max_effect_draws,
-                backend=cfg.backend,
-                seed=cfg.seed,
-                verbose=cfg.verbose,
-            )
+            if sar:
+                sar_fit = run_scspill(
+                    sar_inputs,
+                    p_factors=cfg.p_factors,
+                    m_iter=cfg.m_iter,
+                    burn=cfg.burn,
+                    step_rho=cfg.step_rho,
+                    adapt_rho=cfg.adapt_rho,
+                    target_accept_rho=cfg.target_accept_rho,
+                    beta_prior=cfg.beta_prior,
+                    propagate_alpha=cfg.propagate_alpha,
+                    a0=cfg.a0,
+                    b0=cfg.b0,
+                    ci=cfg.ci,
+                    max_effect_draws=cfg.max_effect_draws,
+                    backend=cfg.backend,
+                    seed=cfg.seed,
+                    verbose=cfg.verbose,
+                )
+                report = build_sar_report(cfg, sar_fit)
+            else:
+                cd_fit = run_cd(
+                    cd_inputs,
+                    reference_mode=cfg.reference_mode,
+                    quantile_method=cfg.quantile_method,
+                    ci_method=cfg.ci_method,
+                    ci=cfg.ci,
+                    scm_maxiter=cfg.scm_maxiter,
+                    scm_ftol=cfg.scm_ftol,
+                )
+                report = build_cd_report(cfg, cd_fit)
+            results = SCSPILLResults(**report, plot_config=cfg.resolved_plot())
         except (ScspillDataError, ScspillConfigError, ScspillEstimationError):
             raise
         except Exception as exc:  # pragma: no cover - defensive translation
             raise ScspillEstimationError(f"SCSPILL estimation failed: {exc}") from exc
-
-        effects = fit.effects
-        weights = make_weights_results(
-            dict(
-                zip(
-                    (str(u) for u in inputs.control_labels),
-                    fit.alpha_posterior.alpha_hat,
-                    strict=True,
-                )
-            ),
-            "unconstrained horseshoe weights (posterior mean)",
-            extra={
-                "scm_simplex_weights": fit.scm_weights,
-                "rho_hat": fit.sar_posterior.rho_hat,
-                "acc_rho": fit.sar_posterior.acc_rho,
-            },
-        )
-        submodels = build_effect_submodels(
-            observed_outcome=inputs.Y0,
-            counterfactual_outcome=effects.cf_mean,
-            n_pre_periods=inputs.T0,
-            n_post_periods=inputs.T1,
-            time_periods=inputs.time_labels,
-            intervention_time=inputs.time_labels[inputs.T0],
-            weights=weights,
-            inference=build_inference(effects),
-            effects_overrides={"att": effects.att},
-            additional_effects={
-                "att_plugin": effects.att_plugin,
-                "att_scm": effects.att_scm,
-                "rho_hat": fit.sar_posterior.rho_hat,
-            },
-            prediction_interval=prediction_interval_spec(effects),
-        )
-        results = SCSPILLResults(
-            **submodels,
-            method_details=MethodDetailsResults(
-                method_name=f"SCSPILL/{cfg.method}",
-                is_recommended=True,
-                parameters_used={
-                    "method": cfg.method,
-                    "m_iter": cfg.m_iter,
-                    "burn": cfg.burn,
-                    "p_factors": cfg.p_factors,
-                    "step_rho": cfg.step_rho,
-                    "adapt_rho": cfg.adapt_rho,
-                    "beta_prior": cfg.beta_prior,
-                    "propagate_alpha": cfg.propagate_alpha,
-                    "seed": cfg.seed,
-                    "ci": cfg.ci,
-                    "backend": cfg.backend,
-                },
-            ),
-            method=cfg.method,
-            inputs=inputs,
-            alpha_posterior=fit.alpha_posterior,
-            sar_posterior=fit.sar_posterior,
-            effects_detail=effects,
-            scm_weights=fit.scm_weights,
-            mcmc_summary_table=fit.mcmc_summary_table,
-            plot_config=cfg.resolved_plot(),
-        )
 
         if cfg.display_graphs:
             try:

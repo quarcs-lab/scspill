@@ -14,7 +14,15 @@ package's ``plot.scspill`` types:
 * ``"rho"`` -- posterior histogram of the spillover intensity (R type
   ``"rho"``);
 * ``"trace"`` -- the ``rho`` chain trace (R type ``"trace"``);
-* ``"panel"`` -- the default 1x3 composite ``full | effect | spill_top``.
+* ``"panel"`` -- the default 1x3 composite ``full | effect | spill_top``;
+* ``"spillover"`` (``cd``) -- small multiples of the direct effect and every
+  exposed control's spillover, with their pointwise intervals;
+* ``"kappa"`` (``cd``) -- the ``kappa_A`` structure statistic by period
+  against its critical value.
+
+The kinds drawn from the shared effect contract (``full``, ``effect``,
+``spill_top``, ``panel``, ``weights``) work for every model; the others are
+model-specific (see :data:`KINDS`).
 """
 
 from __future__ import annotations
@@ -29,7 +37,11 @@ from ..plotting import Plotter, scspill_style
 if TYPE_CHECKING:  # pragma: no cover
     from .structures import SCSPILLResults
 
-_KINDS = ("panel", "full", "effect", "spill_top", "weights", "rho", "trace")
+#: The plot kinds each model supports.
+KINDS: dict[str, tuple[str, ...]] = {
+    "sar": ("panel", "full", "effect", "spill_top", "weights", "rho", "trace"),
+    "cd": ("panel", "full", "effect", "spill_top", "weights", "spillover", "kappa"),
+}
 
 
 def plot_scspill(
@@ -74,8 +86,11 @@ def plot_scspill(
     ScspillPlottingError
         On an unknown ``kind`` or a plotting failure.
     """
-    if kind not in _KINDS:
-        raise ScspillPlottingError(f"Unknown plot kind {kind!r}; expected one of {_KINDS}.")
+    kinds = KINDS.get(results.method, ())
+    if kind not in kinds:
+        raise ScspillPlottingError(
+            f"Unknown plot kind {kind!r} for method={results.method!r}; expected one of {kinds}."
+        )
     import matplotlib.pyplot as plt
 
     pc = results.plot_config
@@ -98,6 +113,9 @@ def plot_scspill(
             elif kind == "spill_top":
                 fig, ax_grid = _draw_spill_grid(results, top_n)
                 out = ax_grid
+            elif kind == "spillover":
+                fig, ax_grid = _draw_cd_effects_grid(results)
+                out = ax_grid
             else:
                 if ax is None:
                     fig, ax = plt.subplots(figsize=(8, 5))
@@ -113,6 +131,8 @@ def plot_scspill(
                     _draw_rho(results, ax)
                 elif kind == "trace":
                     _draw_trace(results, ax)
+                elif kind == "kappa":
+                    _draw_kappa(results, ax)
                 out = ax
 
             if save:
@@ -137,7 +157,7 @@ def _draw_full(results: SCSPILLResults, plotter: Plotter, ax) -> None:
         treated_label=str(inputs.treated_label),
         intervention=inputs.time_labels[inputs.T0],
         interval=(eff.cf_lower, eff.cf_upper),
-        interval_label=f"{round(eff.ci_level * 100)}% credible interval",
+        interval_label=eff.interval_label,
         outcome="Outcome",
         time="Time",
         title="Observed vs. synthetic counterfactual",
@@ -154,7 +174,7 @@ def _draw_effect(results: SCSPILLResults, plotter: Plotter, ax) -> None:
         inputs.Y0 - eff.cf_mean,
         intervention=inputs.time_labels[inputs.T0],
         interval=(inputs.Y0 - eff.cf_upper, inputs.Y0 - eff.cf_lower),
-        interval_label=f"{round(eff.ci_level * 100)}% credible interval",
+        interval_label=eff.interval_label,
         outcome="Treatment effect",
         time="Time",
         title="Treatment effect on the treated",
@@ -185,7 +205,7 @@ def _draw_spill_top(results: SCSPILLResults, ax, top_n: int) -> None:
 
 
 def _draw_spill_grid(results: SCSPILLResults, top_n: int):
-    """Small-multiple grid of spillover paths with credible bands."""
+    """Small-multiple grid of spillover paths with their bands."""
     import matplotlib.pyplot as plt
 
     inputs = results.inputs
@@ -216,16 +236,33 @@ def _draw_spill_grid(results: SCSPILLResults, top_n: int):
     return fig, axes
 
 
+#: Legend of each model's donor weights, and of its comparator weights.
+_WEIGHT_LABELS = {
+    "sar": ("SCSPILL (posterior mean)", "Classical SCM"),
+    "cd": ("Cao-Dowd SCM equation", "Pure-donor SCM"),
+}
+
+
+def _comparator_weights(results: SCSPILLResults) -> dict[str, float] | None:
+    """Return the comparator weights drawn as markers (a no-spillover SCM)."""
+    if results.method == "sar":
+        return results.scm_weights or None
+    return None
+
+
 def _draw_weights(results: SCSPILLResults, ax, top_n: int = 15) -> None:
-    """Posterior-mean alpha vs. classical simplex-SCM weights."""
-    labels = [str(u) for u in results.inputs.control_labels]
-    alpha = results.alpha_hat
-    order = np.argsort(-np.abs(alpha))[:top_n][::-1]
+    """Draw the treated unit's donor weights against a comparator's."""
+    weights = results.donor_weights or {}
+    labels = list(weights)
+    w = np.asarray(list(weights.values()), dtype=float)
+    main_label, comparator_label = _WEIGHT_LABELS[results.method]
+    order = np.argsort(-np.abs(w))[:top_n][::-1]
     ypos = np.arange(order.size)
-    ax.barh(ypos, alpha[order], color="#1f77b4", alpha=0.85, label="SCSPILL (posterior mean)")
-    if results.scm_weights:
-        scm = np.array([results.scm_weights.get(labels[j], 0.0) for j in order])
-        ax.plot(scm, ypos, "o", color="crimson", markersize=5, label="Classical SCM")
+    ax.barh(ypos, w[order], color="#1f77b4", alpha=0.85, label=main_label)
+    comparator = _comparator_weights(results)
+    if comparator:
+        marks = np.array([comparator.get(labels[j], 0.0) for j in order])
+        ax.plot(marks, ypos, "o", color="crimson", markersize=5, label=comparator_label)
     ax.axvline(0.0, color="black", linewidth=0.8)
     ax.set_yticks(ypos)
     ax.set_yticklabels([labels[j] for j in order], fontsize=8)
@@ -256,3 +293,78 @@ def _draw_trace(results: SCSPILLResults, ax) -> None:
     ax.set_xlabel("Draw")
     ax.set_ylabel(r"$\rho$")
     ax.set_title(f"rho trace (acceptance {results.acc_rho:.0%}, ESS {results.rho_ess:.0f})")
+
+
+def _draw_cd_effects_grid(results: SCSPILLResults):
+    """Draw every exposed unit's effect with its interval as small multiples (``cd``)."""
+    import matplotlib.pyplot as plt
+
+    inputs = results.inputs
+    effects = results.effects_panel
+    intervals = results.effect_ci
+    labels = [*inputs.treated_labels, *getattr(inputs, "affected_labels", ())]
+    ncols = min(4, max(1, len(labels)))
+    nrows = int(np.ceil(len(labels) / ncols))
+    fig, axes = plt.subplots(
+        nrows, ncols, figsize=(3.4 * ncols, 2.6 * nrows), sharex=True, squeeze=False
+    )
+    periods = effects.index.to_numpy()
+    treated = set(inputs.treated_labels)
+    for k, lab in enumerate(labels):
+        ax = axes[k // ncols][k % ncols]
+        band = intervals[lab]
+        ax.fill_between(
+            periods,
+            band["lower"].to_numpy(),
+            band["upper"].to_numpy(),
+            alpha=0.18,
+            linewidth=0,
+        )
+        ax.plot(periods, effects[lab].to_numpy(), linewidth=1.2, marker="o", markersize=2.5)
+        ax.axhline(0.0, color="black", linewidth=0.6)
+        role = "direct effect" if lab in treated else "spillover"
+        ax.set_title(f"{lab} ({role})", fontsize=9)
+    if np.issubdtype(periods.dtype, np.integer):
+        from matplotlib.ticker import MaxNLocator
+
+        axes[0][0].xaxis.set_major_locator(MaxNLocator(integer=True))
+    for k in range(len(labels), nrows * ncols):
+        axes[k // ncols][k % ncols].set_visible(False)
+    fig.suptitle(
+        f"Direct and spillover effects ({results.effects_detail.interval_label})", fontsize=11
+    )
+    fig.tight_layout()
+    return fig, axes
+
+
+def _draw_kappa(results: SCSPILLResults, ax) -> None:
+    """Draw the ``kappa_A`` statistic by period against its critical value (``cd``)."""
+    tests = results.kappa_test
+    periods = list(tests)
+    stats = np.array([tests[p].statistic for p in periods])
+    critical = tests[periods[0]].critical_value
+    refs = tests[periods[0]].reference_statistics
+    rejected = np.array([tests[p].reject for p in periods])
+    ax.axhspan(
+        float(refs.min()),
+        float(refs.max()),
+        color="grey",
+        alpha=0.15,
+        label="Pre-treatment reference range",
+    )
+    ax.axhline(
+        critical,
+        color="crimson",
+        linestyle="--",
+        linewidth=1.0,
+        label=f"Critical value ({round(results.effects_detail.ci_level * 100)}%)",
+    )
+    ax.plot(periods, stats, color="#1f77b4", linewidth=1.0)
+    ax.plot(
+        np.array(periods)[~rejected], stats[~rejected], "o", color="#1f77b4", label="Not rejected"
+    )
+    ax.plot(np.array(periods)[rejected], stats[rejected], "o", color="crimson", label="Rejected")
+    ax.set_xlabel("Time")
+    ax.set_ylabel(r"$\kappa_A$ statistic")
+    ax.set_title("Specification test of the exposure structure")
+    ax.legend(fontsize=8)

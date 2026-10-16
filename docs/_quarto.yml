@@ -102,14 +102,6 @@ quartodoc:
       package: scspill.utils.scspill_helpers.config
       contents:
         - SCSPILLConfig
-    - title: Cao–Dowd configuration and results
-      desc: >-
-        Fixed exposure sets or labeled A matrices, all-unit SCM equations,
-        pointwise P tests, and kappa_A structure tests.
-      package: scspill.utils.scspill_helpers.cd
-      contents:
-        - CDConfig
-        - CDResults
     - title: Results
       desc: >-
         The standardized posterior report — flat accessors (`att`, `att_ci`,
@@ -119,10 +111,21 @@ quartodoc:
       package: scspill.utils.scspill_helpers.structures
       contents:
         - SCSPILLResults
-        - SCSPILLInputs
-        - AlphaPosterior
-        - SARPosterior
-        - SCSPILLEffects
+    - title: Result containers
+      desc: >-
+        The frozen dataclasses behind a result — the model-agnostic prepared
+        panel and effect contract, the `sar` model's inputs and posterior
+        blocks, and the `cd` model's inputs, fit and P tests.
+      package: scspill.utils.scspill_helpers
+      contents:
+        - containers.PanelInputs
+        - containers.SCSPILLEffects
+        - sar.structures.SARInputs
+        - sar.structures.AlphaPosterior
+        - sar.structures.SARPosterior
+        - cd.structures.CDInputs
+        - cd.structures.CDFit
+        - cd.structures.CDTestResult
     - title: Validation & prior checks
       desc: >-
         The `sar` article's appendix machinery as user-facing functions — the
@@ -182,4 +185,3 @@ quartodoc:
         - load_sudan
         - SpillPanel
         - load_california_cd
-        - CDPanel

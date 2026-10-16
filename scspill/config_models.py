@@ -582,7 +582,6 @@ EffectResult = BaseEstimatorResults
 # ---------------------------------------------------------------------------
 _RELOCATED_CONFIGS = {
     "SCSPILLConfig": "scspill.utils.scspill_helpers.config",
-    "CDConfig": "scspill.utils.scspill_helpers.cd",
 }
 
 

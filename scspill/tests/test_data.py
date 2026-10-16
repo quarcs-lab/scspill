@@ -4,7 +4,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from scspill.data import SUDAN_COLUMN_MAP, SpillPanel, load_california, load_sudan
+from scspill.data import (
+    SUDAN_COLUMN_MAP,
+    SpillPanel,
+    load_california,
+    load_california_cd,
+    load_sudan,
+)
+from scspill.exceptions import ScspillDataError
 
 # ---------------------------------------------------------------------------
 # FIXTURES
@@ -161,3 +168,48 @@ def test_no_missing_values(california, sudan):
 
 def test_spillpanel_is_dataclass_instance(california):
     assert isinstance(california, SpillPanel)
+
+
+# ---------------------------------------------------------------------------
+# CAO-DOWD PROPOSITION 99 PANEL
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("spec, n_affected", [(51, 13), (41, 3)])
+def test_california_cd_panel(spec, n_affected):
+    panel = load_california_cd(spec)
+    assert isinstance(panel, SpillPanel)
+    assert panel.df["state"].nunique() == spec
+    assert set(panel.df["year"]) == set(range(1970, 2001))
+    assert (panel.treated_unit, panel.treatment_time) == ("CA", 1989)
+    treated = panel.df.loc[panel.df["treated"] == 1]
+    assert set(treated["state"]) == {"CA"} and treated["year"].min() == 1989
+    assert len(panel.affected_units) == n_affected
+    assert "CA" not in panel.affected_units
+    assert {"AZ", "NV", "OR"} <= set(panel.affected_units)
+    assert not panel.has_spatial_weights
+
+
+def test_california_cd_config_kwargs_default_to_cd():
+    kwargs = load_california_cd(41).config_kwargs()
+    assert kwargs["method"] == "cd"
+    assert kwargs["affected_units"] == ["AZ", "NV", "OR"]
+    assert "spatial_w" not in kwargs and "covariates" not in kwargs
+
+
+def test_sar_config_kwargs_need_spatial_weights():
+    with pytest.raises(ScspillDataError, match="no spatial weights"):
+        load_california_cd(41).config_kwargs(method="sar")
+
+
+def test_sar_panel_can_configure_cd(california):
+    kwargs = california.config_kwargs(method="cd")
+    assert kwargs["method"] == "cd" and kwargs["affected_units"] == []
+    assert "spatial_W" not in kwargs
+
+
+def test_unknown_specification_and_method(california):
+    with pytest.raises(ScspillDataError, match="41 or 51"):
+        load_california_cd(40)
+    with pytest.raises(ScspillDataError, match="Unknown method"):
+        california.config_kwargs(method="nope")
