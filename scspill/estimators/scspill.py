@@ -25,7 +25,6 @@ from __future__ import annotations
 
 from pydantic import ValidationError
 
-from ..config_models import MethodDetailsResults
 from ..exceptions import (
     ScspillConfigError,
     ScspillDataError,
@@ -33,11 +32,10 @@ from ..exceptions import (
     ScspillPlottingError,
 )
 from ..utils.datautils import balance
-from ..utils.results_helpers import build_effect_submodels, make_weights_results
 from ..utils.scspill_helpers.cd import CDResults, fit_cd
 from ..utils.scspill_helpers.config import SCSPILLConfig
-from ..utils.scspill_helpers.sar.inference import build_inference, prediction_interval_spec
 from ..utils.scspill_helpers.sar.pipeline import run_scspill
+from ..utils.scspill_helpers.sar.report import build_sar_report
 from ..utils.scspill_helpers.setup import prepare_scspill_inputs
 from ..utils.scspill_helpers.structures import SCSPILLResults
 
@@ -159,67 +157,7 @@ class SCSPILL:
         except Exception as exc:  # pragma: no cover - defensive translation
             raise ScspillEstimationError(f"SCSPILL estimation failed: {exc}") from exc
 
-        effects = fit.effects
-        weights = make_weights_results(
-            dict(
-                zip(
-                    (str(u) for u in inputs.control_labels),
-                    fit.alpha_posterior.alpha_hat,
-                    strict=True,
-                )
-            ),
-            "unconstrained horseshoe weights (posterior mean)",
-            extra={
-                "scm_simplex_weights": fit.scm_weights,
-                "rho_hat": fit.sar_posterior.rho_hat,
-                "acc_rho": fit.sar_posterior.acc_rho,
-            },
-        )
-        submodels = build_effect_submodels(
-            observed_outcome=inputs.Y0,
-            counterfactual_outcome=effects.cf_mean,
-            n_pre_periods=inputs.T0,
-            n_post_periods=inputs.T1,
-            time_periods=inputs.time_labels,
-            intervention_time=inputs.time_labels[inputs.T0],
-            weights=weights,
-            inference=build_inference(effects),
-            effects_overrides={"att": effects.att},
-            additional_effects={
-                "att_plugin": effects.att_plugin,
-                "att_scm": effects.att_scm,
-                "rho_hat": fit.sar_posterior.rho_hat,
-            },
-            prediction_interval=prediction_interval_spec(effects),
-        )
-        results = SCSPILLResults(
-            **submodels,
-            method_details=MethodDetailsResults(
-                method_name=f"SCSPILL/{cfg.method}",
-                is_recommended=True,
-                parameters_used={
-                    "method": cfg.method,
-                    "m_iter": cfg.m_iter,
-                    "burn": cfg.burn,
-                    "p_factors": cfg.p_factors,
-                    "step_rho": cfg.step_rho,
-                    "adapt_rho": cfg.adapt_rho,
-                    "beta_prior": cfg.beta_prior,
-                    "propagate_alpha": cfg.propagate_alpha,
-                    "seed": cfg.seed,
-                    "ci": cfg.ci,
-                    "backend": cfg.backend,
-                },
-            ),
-            method=cfg.method,
-            inputs=inputs,
-            alpha_posterior=fit.alpha_posterior,
-            sar_posterior=fit.sar_posterior,
-            effects_detail=effects,
-            scm_weights=fit.scm_weights,
-            mcmc_summary_table=fit.mcmc_summary_table,
-            plot_config=cfg.resolved_plot(),
-        )
+        results = SCSPILLResults(**build_sar_report(cfg, fit), plot_config=cfg.resolved_plot())
 
         if cfg.display_graphs:
             try:

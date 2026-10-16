@@ -10,13 +10,14 @@ under their historical import path.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field, model_validator
 
 from ...config_models import BaseEstimatorResults
+from ...exceptions import ScspillEstimationError
 from .containers import PanelInputs, SCSPILLEffects, _freeze_array
 from .sar.structures import (
     AlphaPosterior,
@@ -42,38 +43,68 @@ __all__ = [
 
 
 class SCSPILLResults(BaseEstimatorResults):
-    """Standardized results of the SCSPILL estimator.
+    """Standardized results of a SCSPILL fit, for any model.
 
     Subclasses :class:`scspill.config_models.BaseEstimatorResults`, so the
     flat effect surface (``att``, ``att_ci``, ``counterfactual``, ``gap``,
     ``donor_weights``, ``pre_rmse``, ``.plot()``) resolves through the shared
-    contract, while the Bayesian detail lives in typed fields:
+    contract for every model. The rest is typed:
 
-    * :attr:`inputs` -- the prepared panel and spatial weights;
-    * :attr:`alpha_posterior` / :attr:`sar_posterior` -- the two posterior
-      blocks with their full draw arrays;
-    * :attr:`effects_detail` -- ATT draws, counterfactual band, and the
-      per-donor spillover panel;
-    * :attr:`scm_weights` -- classical simplex-SCM comparator weights.
+    * :attr:`method` -- the model that produced the fit; it mirrors
+      ``SCSPILLConfig.method`` and the suffix of
+      ``method_details.method_name`` (``"SCSPILL/<method>"``);
+    * :attr:`inputs` -- the prepared panel (with the spatial weights for
+      ``sar``, the exposure matrix for ``cd``);
+    * :attr:`effects_detail` -- the cross-model effect contract: the
+      counterfactual path and band, and the time-by-control spillover panel
+      with its band;
+    * :attr:`sar` / :attr:`cd` -- the model's own fit. Exactly the slot named
+      by :attr:`method` is set; the other is ``None``.
 
-    :attr:`method` records which spillover model produced the fit. It mirrors
-    ``SCSPILLConfig.method`` and the suffix of
-    ``method_details.method_name`` (``"SCSPILL/<method>"``). Only ``"sar"``
-    uses this result; another model declares its own estimation blocks
-    alongside :attr:`alpha_posterior` / :attr:`sar_posterior`, which are
-    SAR-specific, while :attr:`inputs`, :attr:`effects_detail` and the flat
-    effect surface are the cross-model contract.
+    Model-specific accessors read the matching slot -- ``alpha_hat``,
+    ``rho_hat``, ``diagnostics()`` for ``sar``; ``effects_panel``,
+    ``effect_ci``, ``test_hypothesis()`` for ``cd`` -- and raise
+    :class:`AttributeError` on a result of the other model.
     """
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, extra="forbid")
 
-    method: str = "sar"
+    method: Literal["sar"] = "sar"
     inputs: SARInputs
-    alpha_posterior: AlphaPosterior
-    sar_posterior: SARPosterior
     effects_detail: SCSPILLEffects
     scm_weights: dict[str, float] | None = None
-    mcmc_summary_table: pd.DataFrame | None = None
+    sar: SARFit | None = Field(default=None, exclude=True, repr=False)
+
+    @model_validator(mode="after")
+    def _check_model_slot(self) -> SCSPILLResults:
+        """Check that the slot named by ``method`` holds the fit."""
+        if getattr(self, self.method) is None:
+            raise ScspillEstimationError(f"A method={self.method!r} result needs its fit.")
+        return self
+
+    def _require_sar(self, name: str) -> SARFit:
+        """Return the ``sar`` fit, or raise AttributeError naming the accessor."""
+        if self.sar is None:
+            raise AttributeError(
+                f"{name!r} is defined only for method='sar'; this result has "
+                f"method={self.method!r}."
+            )
+        return self.sar
+
+    @property
+    def alpha_posterior(self) -> AlphaPosterior:
+        """Step-1 posterior block of the synthetic weights (``sar`` only)."""
+        return self._require_sar("alpha_posterior").alpha_posterior
+
+    @property
+    def sar_posterior(self) -> SARPosterior:
+        """Step-2 posterior block of the SAR process (``sar`` only)."""
+        return self._require_sar("sar_posterior").sar_posterior
+
+    @property
+    def mcmc_summary_table(self) -> pd.DataFrame | None:
+        """Precomputed posterior summary table (``sar`` only)."""
+        return self._require_sar("mcmc_summary_table").mcmc_summary_table
 
     # ------------------------------------------------------------------
     # Convenience accessors over the posterior blocks
