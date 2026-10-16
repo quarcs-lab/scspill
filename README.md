@@ -24,18 +24,19 @@ express at all.
 | Model | `method` | Reference | Class | Docs |
 |---|---|---|---|---|
 | Bayesian spatial-autoregressive spillover SCM | `"sar"` | [Sakaguchi & Tagawa (2026)](https://doi.org/10.1093/ectj/utag006), *The Econometrics Journal* | `SCSPILL` | [`sar`](https://quarcs-lab.github.io/scspill/models/sar.html) |
+| SCM with spillover effects | `"cd"` | [Cao & Dowd, v4](https://arxiv.org/html/1902.07343v4) | `SCSPILL` | [`cd`](https://quarcs-lab.github.io/scspill/models/cd.html) |
 
-One model ships today. `sar` routes spillovers through spatial weights you
+`sar` routes spillovers through spatial weights you
 supply, scaled by a single intensity ρ that is estimated rather than assumed,
 fits unconstrained horseshoe-shrunk synthetic weights, and returns full
 Bayesian uncertainty for both estimands. At ρ = 0 it collapses exactly to the
 Bayesian horseshoe synthetic control.
 
-Three further spillover-aware models — Cao & Dowd, the inclusive SCM of
-Di Stefano & Mellace, and the partial-interference SCG of Grossi et al. — are
-on the [roadmap](https://quarcs-lab.github.io/scspill/models/#planned). They
-are **not implemented**, and `SCSPILLConfig` rejects their names rather than
-falling back silently.
+`cd` uses intercept-adjusted SCM equations for every unit and a specified
+exposure structure to recover direct and spillover effects. It includes
+Andrews P tests and a structure test. The inclusive SCM of Di Stefano &
+Mellace and partial-interference SCG of Grossi et al. remain on the
+[roadmap](https://quarcs-lab.github.io/scspill/models/#planned).
 
 The estimator architecture follows
 [mlsynth](https://github.com/jgreathouse9/mlsynth) (a pydantic config in, a
@@ -76,10 +77,10 @@ result.plot(kind="panel")          # counterfactual | effect | top spillovers
 
 | Subpackage | What it does | Docs |
 |---|---|---|
-| `scspill` | The model layer. `SCSPILL(config).fit()` — today the `sar` model's two-step Bayesian sampler (horseshoe synthetic weights, SAR spillover block, adaptive Metropolis for the spillover intensity) and its identification formulas | [Get started](https://quarcs-lab.github.io/scspill/get-started.html) |
+| `scspill` | The model layer. `SCSPILL(config).fit()` dispatches the Bayesian `sar` and Cao–Dowd `cd` estimators | [Models](https://quarcs-lab.github.io/scspill/models/) |
 | `scspill.validation` | `sar`'s sampler validation: the Geweke (2004) joint distribution test, prior-sensitivity grids, prior predictive checks | [Validation](https://quarcs-lab.github.io/scspill/articles/validation.html) |
 | `scspill.simulate` | `sar`'s Monte Carlo engine: rook-lattice SAR DGP, SCM/BSCM/SCSPILL comparison, the Tables 1–2 grid | [Simulation study](https://quarcs-lab.github.io/scspill/articles/simulation-study.html) |
-| `scspill.data` | The bundled California Prop 99 and Sudan secession spillover panels — model-agnostic, usable by any model added later | [Datasets](https://quarcs-lab.github.io/scspill/articles/datasets.html) |
+| `scspill.data` | California and Sudan panels, plus the authors' 51/41-unit Cao–Dowd Proposition 99 data | [Datasets](https://quarcs-lab.github.io/scspill/articles/datasets.html) |
 
 ## `sar` is validated, not just implemented
 

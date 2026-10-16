@@ -27,17 +27,13 @@ worth having more than one — run two and they bracket the answer.
 
 ## Available now
 
-::: {.callout-important}
-## One model ships today
-scspill implements **one** model. Everything under
-[Planned](#planned) below is a roadmap: none of it is implemented, and none of
-those `method` names is accepted. Passing one raises a validation error rather
-than silently falling back.
-:::
+scspill implements two models. `sar` remains the default, and `cd` uses a
+specified spillover structure and pre-treatment P-test reference distribution.
 
 | Model | `method` | Reference | Class | Page |
 |---|---|---|---|---|
 | Bayesian spatial-autoregressive spillover SCM | `"sar"` | Sakaguchi & Tagawa (2026), *The Econometrics Journal*, [doi:10.1093/ectj/utag006](https://doi.org/10.1093/ectj/utag006) | `SCSPILL` | [`sar` →](sar.qmd) |
+| SCM with spillover effects | `"cd"` | Cao & Dowd, [arXiv:1902.07343v4](https://arxiv.org/html/1902.07343v4) | `SCSPILL` | [`cd` →](cd.qmd) |
 
 ### `sar` — spillovers as a spatial process
 
@@ -68,18 +64,27 @@ Full statement of the model, the identification theorem, the samplers, and the
 six documented departures from the authors' R replication package are on
 [the `sar` page](sar.qmd).
 
+### `cd` — spillovers under a specified structure
+
+`cd` estimates an intercept and simplex synthetic-control weights for each
+unit, then uses a fixed exposure matrix $A$ to separate direct and spillover
+effects by post-treatment period. Andrews P tests use pre-treatment variation;
+the $\kappa_A$ test checks whether the specified structure fits. The
+[model page](cd.qmd) documents the 51-state Proposition 99 replication,
+inference options, and the distinction between the paper's P-test interval
+and the published application's interval calculation.
+
 ## Planned {#planned}
 
 ::: {.callout-warning}
 ## Not implemented
-The three models below are candidates, not features. They are listed so the
+The two models below are candidates, not features. They are listed so the
 package's intended scope is legible and so the `method` names stay coherent —
 **none of them exists in scspill today**, and there is no release date.
 :::
 
 | Model | Reserved `method` | Reference | How it *would* identify the spillover |
 |---|---|---|---|
-| SCM with spillover effects | `"cd"` | Cao & Dowd, [arXiv:1902.07343](https://arxiv.org/abs/1902.07343) (2019, rev. 2026) | *Keep* the exposed donors and impose a researcher-specified spillover-structure matrix, linear in unknown parameters, recovering direct and per-unit spillover effects jointly. Comes with a misspecification test for the structure you assumed. |
 | Inclusive synthetic control | `"iscm"` | Di Stefano & Mellace, [arXiv:2403.17624](https://arxiv.org/abs/2403.17624) (2024) | *Keep* the exposed donors with no parametric spillover structure at all: build a synthetic control for every affected unit, then invert the system of their own cross-weights to de-contaminate the gaps. |
 | Partial-interference synthetic control group | `"grossi"` | Grossi, Mariani, Mattei, Lattarulo & Öner (2025), *JRSS-A* 188(1):223–240, [arXiv:2004.05027](https://arxiv.org/abs/2004.05027) | *Drop* the treated unit's whole cluster from the pool and rebuild from the far, clean clusters only. Cleanest identification when partial interference is defensible, at the cost of pre-treatment fit. |
 

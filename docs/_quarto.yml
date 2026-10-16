@@ -25,6 +25,8 @@ website:
           - text: "---"
           - text: "sar — Bayesian spatial-autoregressive spillover SCM"
             file: models/sar.qmd
+          - text: "cd — Cao–Dowd SCM with spillovers"
+            file: models/cd.qmd
       - text: "Sudan case study"
         file: sudan.qmd
       - text: "For AI / LLMs"
@@ -83,18 +85,16 @@ quartodoc:
     - title: Estimator
       desc: >-
         Configure once, fit once. `SCSPILL(config).fit()` runs the spillover
-        model named by `method` — today `"sar"`, whose two-step sampler fits
-        the horseshoe synthetic weights and then the SAR spillover block — and
-        returns a `SCSPILLResults` with the treatment effect, its credible
-        interval, and the spillover received by every donor. The
+        model named by `method`: `"sar"` runs the Bayesian spatial sampler;
+        `"cd"` runs Cao–Dowd all-unit SCM and P-test inference. It returns
+        the model-specific result and a shared effect surface. The
         [model catalogue](../models/index.qmd) says which models exist.
       package: scspill.estimators.scspill
       contents:
         - SCSPILL
     - title: Configuration
       desc: >-
-        The pydantic input contract — `method` (the spillover model; `"sar"`
-        is the only accepted value today), the long panel and its column
+        The pydantic input contract for `"sar"` — the long panel and its column
         names, the spatial weights `spatial_w` / `spatial_W` (label-aligned),
         covariates, the MCMC budget, priors, and the paper-correct switches
         (`beta_prior`, `propagate_alpha`, `adapt_rho`) with their R-compatible
@@ -102,6 +102,14 @@ quartodoc:
       package: scspill.utils.scspill_helpers.config
       contents:
         - SCSPILLConfig
+    - title: Cao–Dowd configuration and results
+      desc: >-
+        Fixed exposure sets or labeled A matrices, all-unit SCM equations,
+        pointwise P tests, and kappa_A structure tests.
+      package: scspill.utils.scspill_helpers.cd
+      contents:
+        - CDConfig
+        - CDResults
     - title: Results
       desc: >-
         The standardized posterior report — flat accessors (`att`, `att_ci`,
@@ -164,14 +172,14 @@ quartodoc:
         - mcmc_summary
     - title: Datasets
       desc: >-
-        Two bundled spillover case studies, shipped inside the wheel — the
-        California Proposition 99 tobacco panel (39 states, 1970–2000, rook
-        contiguity weights) and the 2011 Sudan secession panel (34 African
-        countries, 2000–2015, bilateral-trade weights). Each loader returns a
-        `SpillPanel` whose `config_kwargs()` feeds any spillover model's
-        configuration directly.
+        Three bundled panels: the 39-state California and Sudan SAR case
+        studies, plus the 51/41-unit California data used by Cao–Dowd with
+        treatment beginning in 1989. Each loader supplies model-specific
+        configuration fields.
       package: scspill.data
       contents:
         - load_california
         - load_sudan
         - SpillPanel
+        - load_california_cd
+        - CDPanel

@@ -6,7 +6,7 @@ treated unit, purged of the contamination, and the spillover effect received
 by every control unit.
 
 The package is organized around a model layer, selected by ``method``.
-Exactly one model ships today:
+Two models are implemented:
 
 ``"sar"``
     The Bayesian spatial-autoregressive model of Sakaguchi & Tagawa (2026),
@@ -19,15 +19,20 @@ Exactly one model ships today:
     block (latent AR(1) factors, covariates, and a random-walk Metropolis step
     for ``rho``) conditional on the posterior mean of ``alpha``.
 
+``"cd"``
+    Cao and Dowd's intercept-adjusted, all-unit SCM with a researcher-supplied
+    spillover structure.  It reports period-specific direct and spillover
+    effects, Andrews P tests, confidence intervals, and specification tests.
+
 Further spillover-aware models are planned behind the same interface; the
 catalogue at https://quarcs-lab.github.io/scspill/models/ tracks them and
 states plainly which are implemented.
 
 Public API::
 
-    from scspill import SCSPILL, SCSPILLConfig
+    from scspill import SCSPILL, SCSPILLConfig, CDConfig
 
-    result = SCSPILL(config).fit()   # -> SCSPILLResults  (method="sar")
+    result = SCSPILL(config).fit()   # -> SCSPILLResults or CDResults
 
 plus the companion subpackages :mod:`scspill.validation` (the ``sar`` model's
 Geweke joint distribution test, prior sensitivity, and prior predictive
@@ -53,6 +58,8 @@ from scspill.exceptions import (
 
 __all__ = [
     "SCSPILL",
+    "CDConfig",
+    "CDResults",
     "SCSPILLConfig",
     "SCSPILLResults",
     "ScspillConfigError",
@@ -69,6 +76,8 @@ _LAZY_EXPORTS = {
     "SCSPILL": ("scspill.estimators.scspill", "SCSPILL"),
     "SCSPILLConfig": ("scspill.utils.scspill_helpers.config", "SCSPILLConfig"),
     "SCSPILLResults": ("scspill.utils.scspill_helpers.structures", "SCSPILLResults"),
+    "CDConfig": ("scspill.utils.scspill_helpers.cd", "CDConfig"),
+    "CDResults": ("scspill.utils.scspill_helpers.cd", "CDResults"),
 }
 
 

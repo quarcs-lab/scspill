@@ -8,13 +8,14 @@
 Install: `pip install scspill` (or `pip install "scspill[numba]"` for
 JIT-compiled samplers).
 
-Models: exactly ONE is implemented -- `method="sar"` (Sakaguchi & Tagawa,
-The Econometrics Journal 2026), class SCSPILL, and the default. It routes
+Models: TWO are implemented -- `method="sar"` (Sakaguchi & Tagawa,
+The Econometrics Journal 2026), the default, and `method="cd"` (Cao & Dowd,
+arXiv:1902.07343v4). `sar` routes
 spillovers through user-supplied spatial weights scaled by one estimated
 intensity rho, via two-step MCMC (horseshoe synthetic weights, then a SAR
-spillover block). The catalogue also lists `cd` (Cao & Dowd), `iscm` (Di
-Stefano & Mellace) and `grossi` (Grossi et al.) as PLANNED: they are NOT
-implemented and SCSPILLConfig rejects them. Do not emit code using them.
+spillover block). `cd` fits intercept-adjusted all-unit SCM with a fixed
+exposure matrix and P-test inference. `iscm` (Di Stefano & Mellace) and
+`grossi` (Grossi et al.) remain planned and are not implemented.
 Catalogue: https://quarcs-lab.github.io/scspill/models/index.html
 
 Minimal contract (model `sar`): SCSPILL({df, outcome, treat, unitid, time,
@@ -24,11 +25,19 @@ result with .att, .att_ci, .rho_hat, .rho_ci, .counterfactual,
 treated unit and date are inferred from the 0/1 `treat` column; spatial
 weights align by donor label.
 
+Minimal contract (model `cd`): SCSPILL({method: "cd", df, outcome, treat,
+unitid, time, affected_units? or effect_matrix?, reference_mode?,
+quantile_method?, ci_method?}).fit() -> CDResults with .effects_panel,
+.effect_ci (= .published_ci by default, or .pointwise_ci),
+.pointwise_p_values, .kappa_test, and .test_hypothesis(C). The 51-unit
+1989-onward replication panel is load_california_cd(51).
+
 ## Docs
 
 - [Get started (California Prop 99)](https://quarcs-lab.github.io/scspill/get-started.html)
 - [Models: catalogue and roadmap](https://quarcs-lab.github.io/scspill/models/index.html)
 - [The `sar` model (Sakaguchi & Tagawa)](https://quarcs-lab.github.io/scspill/models/sar.html)
+- [The `cd` model (Cao & Dowd)](https://quarcs-lab.github.io/scspill/models/cd.html)
 - [Sudan case study](https://quarcs-lab.github.io/scspill/sudan.html)
 - [Validating the sampler](https://quarcs-lab.github.io/scspill/articles/validation.html)
 - [The Monte Carlo simulation study](https://quarcs-lab.github.io/scspill/articles/simulation-study.html)
@@ -42,7 +51,7 @@ weights align by donor label.
 
 ### Top level
 
-`SCSPILL`, `SCSPILLConfig`, `SCSPILLResults`
+`SCSPILL`, `SCSPILLConfig`, `SCSPILLResults`, `CDConfig`, `CDResults`
 
 ### scspill.validation
 
@@ -54,7 +63,7 @@ weights align by donor label.
 
 ### scspill.data
 
-`SpillPanel`, `load_california`, `load_sudan`
+`CDPanel`, `SpillPanel`, `load_california`, `load_california_cd`, `load_sudan`
 
 ## Full corpus
 

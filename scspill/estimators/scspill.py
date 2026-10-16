@@ -1,6 +1,6 @@
-"""The ``sar`` model: Bayesian spatial-autoregressive spillover SCM.
+"""Dispatch spillover SCM models selected by ``method``.
 
-scspill's first model -- today its only one -- implementing:
+The default ``sar`` model implements:
 
     Sakaguchi, S., & Tagawa, H. (2026). "Identification and Bayesian
     Inference for Synthetic Control Methods with Spillover Effects." The
@@ -34,6 +34,7 @@ from ..exceptions import (
 )
 from ..utils.datautils import balance
 from ..utils.results_helpers import build_effect_submodels, make_weights_results
+from ..utils.scspill_helpers.cd import CDConfig, CDResults, fit_cd
 from ..utils.scspill_helpers.config import SCSPILLConfig
 from ..utils.scspill_helpers.sar.inference import build_inference, prediction_interval_spec
 from ..utils.scspill_helpers.sar.pipeline import run_scspill
@@ -42,17 +43,18 @@ from ..utils.scspill_helpers.structures import SCSPILLResults
 
 
 class SCSPILL:
-    """Spillover-aware synthetic control estimator (model ``sar``).
+    """Spillover-aware synthetic control estimator (models ``sar`` and ``cd``).
 
-    Fits the Bayesian spatial-autoregressive spillover model of Sakaguchi &
-    Tagawa (2026) -- scspill's first and, today, only model. Select it with
-    ``method="sar"``; that is the default, so existing code needs no change.
+    The default ``sar`` fit is the Bayesian spatial-autoregressive model of
+    Sakaguchi and Tagawa (2026). ``method="cd"`` fits the Cao--Dowd (2019,
+    v4) all-unit SCM and end-of-sample inference.
 
     Parameters
     ----------
-    config : SCSPILLConfig or dict
+    config : SCSPILLConfig, CDConfig, or dict
         The estimation configuration; a dict is coerced into
-        :class:`scspill.config_models.SCSPILLConfig`.
+        :class:`scspill.config_models.SCSPILLConfig` or ``CDConfig`` according
+        to ``method``.
 
     Examples
     --------
@@ -70,14 +72,20 @@ class SCSPILL:
     ```
     """
 
-    def __init__(self, config: SCSPILLConfig | dict) -> None:
+    def __init__(self, config: SCSPILLConfig | CDConfig | dict) -> None:
         if isinstance(config, dict):
             try:
-                config = SCSPILLConfig(**config)
+                config = (
+                    CDConfig(**config)
+                    if config.get("method", "sar") == "cd"
+                    else SCSPILLConfig(**config)
+                )
             except ValidationError as exc:
                 raise ScspillConfigError(f"Invalid SCSPILL configuration: {exc}") from exc
-        if not isinstance(config, SCSPILLConfig):
-            raise ScspillConfigError("config must be a SCSPILLConfig or a dict of its fields.")
+        if not isinstance(config, (SCSPILLConfig, CDConfig)):
+            raise ScspillConfigError(
+                "config must be a SCSPILLConfig, CDConfig, or a dict of fields."
+            )
         self.config = config
         # Convenience attribute unpacking (mlsynth convention).
         self.df = config.df
@@ -88,7 +96,7 @@ class SCSPILL:
         self.method = config.method
         self.display_graphs = config.display_graphs
 
-    def fit(self) -> SCSPILLResults:
+    def fit(self) -> SCSPILLResults | CDResults:
         """Estimate the model and return standardized results.
 
         Runs the balance check, panel preparation, the two-step sampler, the
@@ -108,6 +116,12 @@ class SCSPILL:
             On plot generation failure (only when ``display_graphs``).
         """
         cfg = self.config
+
+        if isinstance(cfg, CDConfig):
+            cd_result = fit_cd(cfg)
+            if cfg.display_graphs:
+                cd_result.plot(kind="auto")
+            return cd_result
 
         try:
             balance(cfg.df, cfg.unitid, cfg.time)

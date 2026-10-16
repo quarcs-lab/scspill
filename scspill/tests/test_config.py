@@ -123,7 +123,7 @@ def test_r_argument_mapping_documented():
 
 
 def test_method_defaults_to_sar(panel):
-    """Omitting `method` must keep selecting the only implemented model."""
+    """Omitting `method` must keep selecting the SAR model."""
     assert _cfg(panel).method == "sar"
 
 
@@ -131,8 +131,8 @@ def test_method_accepts_sar_explicitly(panel):
     assert _cfg(panel, method="sar").method == "sar"
 
 
-def test_planned_methods_are_rejected_not_silently_accepted(panel):
-    """The roadmap names must not validate: they are not implemented."""
-    for planned in ("cd", "iscm", "grossi"):
+def test_non_sar_methods_are_rejected_by_sar_config(panel):
+    """Model-specific fields must not validate against the SAR config."""
+    for method in ("cd", "iscm", "grossi"):
         with pytest.raises(ValidationError):
-            _cfg(panel, method=planned)
+            _cfg(panel, method=method)

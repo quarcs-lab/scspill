@@ -1,15 +1,23 @@
 ---
 title: "The bundled datasets"
-subtitle: "Provenance and dictionaries for the two case studies"
+subtitle: "Provenance and dictionaries for the SAR and Cao–Dowd case studies"
 ---
 
-Both of the paper's empirical applications ship inside the wheel as plain
+Both of the SAR paper's empirical applications ship inside the wheel as plain
 CSVs (about 150 kB total), copied verbatim from the replication package's
 nonproprietary export. Each loader returns a `SpillPanel` — the long panel
 with a 0/1 `treated` column, the raw spatial weights aligned by donor label,
 and a `config_kwargs()` helper that feeds `SCSPILLConfig` directly. The
 weights are stored *unnormalized*; the estimator row-normalizes `spatial_W`
 and scales `spatial_w` to sum to one, exactly as the R package does.
+
+## Cao–Dowd Proposition 99
+
+`load_california_cd(51)` and `load_california_cd(41)` load a separate
+51-region panel (50 states and DC, 1970–2000, treatment from 1989) taken
+from the authors' [replication repository](https://github.com/jcao0/synthetic-control-spillover).
+It is not interchangeable with `load_california()`; see the
+[`cd` model page](../models/cd.qmd).
 
 ## California Proposition 99
 

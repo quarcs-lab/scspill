@@ -67,12 +67,11 @@ RMSE, and coverage across estimators.
 | Model | `method` | Reference | Status |
 |---|---|---|---|
 | [Bayesian spatial-autoregressive spillover SCM](models/sar.qmd) | `"sar"` | Sakaguchi & Tagawa (2026), *Econometrics Journal* | **Available** |
-| SCM with spillover effects | `"cd"` | Cao & Dowd (2019, rev. 2026) | Planned |
+| [SCM with spillover effects](models/cd.qmd) | `"cd"` | Cao & Dowd (2019, rev. 2026) | **Available** |
 | Inclusive synthetic control | `"iscm"` | Di Stefano & Mellace (2024) | Planned |
 | Partial-interference SCG | `"grossi"` | Grossi et al. (2025), *JRSS-A* | Planned |
 
-The planned rows are a roadmap, not a feature list: they are not implemented
-and their `method` names are rejected rather than silently substituted. The
+The remaining planned rows are a roadmap. Their `method` names are rejected. The
 [model catalogue](models/index.qmd) explains what each would assume, and why
 having several matters — the assumptions are not nested, so two models
 bracket the answer.

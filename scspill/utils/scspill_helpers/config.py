@@ -11,7 +11,7 @@ from ...exceptions import ScspillConfigError
 
 
 class SCSPILLConfig(BaseEstimatorConfig):
-    """Configuration for a spillover synthetic-control fit (today, model ``sar``).
+    """Configuration for the Bayesian ``sar`` spillover synthetic-control fit.
 
     Implements:
 
@@ -72,9 +72,8 @@ class SCSPILLConfig(BaseEstimatorConfig):
             "spatial-autoregressive Bayesian SCM: donor outcomes follow a SAR "
             "process under the supplied weights (spatial_w, spatial_W), and a "
             "two-step sampler estimates the synthetic weights alpha and the "
-            "spillover intensity rho. It is the only implemented model, and the "
-            "default, so omitting this field is correct. Models added later "
-            "select here rather than through a new class; see "
+            "spillover intensity rho. It remains the default; Cao--Dowd uses "
+            "a separate CDConfig selected by method='cd'. See "
             "https://quarcs-lab.github.io/scspill/models/ for the catalogue."
         ),
     )

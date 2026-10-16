@@ -5,8 +5,8 @@ aliases:
   - /articles/method.html
 ---
 
-`sar` is scspill's first model, and today its only one — the
-[model catalogue](index.qmd) lists what else is planned. It implements
+`sar` is scspill's default model. The [model catalogue](index.qmd) also lists
+the implemented [`cd` model](cd.qmd) and future work. `sar` implements
 Sakaguchi & Tagawa's *Identification and Bayesian Inference for Synthetic
 Control Methods with Spillover Effects*. This page states the model, the
 identification result, and the samplers, and documents precisely where this
