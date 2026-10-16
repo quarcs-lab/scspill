@@ -7,9 +7,11 @@ Each case is a module in ``benchmarks/cases/`` exposing:
 * ``EXPECTED: dict[str, tuple[float, float]]`` -- inclusive ``(lo, hi)``
   acceptance interval per metric (booleans use ``(1, 1)``).
 
-The cases validate the Python port against the R replication package's
-frozen results (Path: cross-validation against an authoritative reference
-implementation). Run them with ``python benchmarks/run_benchmarks.py --all``.
+The ``sar`` cases validate the Python port against the R replication
+package's frozen results; the ``cd`` cases validate against the Cao-Dowd
+authors' frozen output, the paper (v3), and mlsynth (Path: cross-validation
+against an authoritative reference implementation). Run them with
+``python benchmarks/run_benchmarks.py --all``.
 """
 
 CASES = {
@@ -23,4 +25,8 @@ CASES = {
     "mc_grid_vs_r": "cases.mc_grid_vs_r",
     # California prior predictive check vs the frozen R p-value table.
     "prior_checks_ca": "cases.prior_checks_ca",
+    # Cao-Dowd Prop 99 vs the authors' frozen output and the paper's Figure 3.
+    "california_cd": "cases.california_cd",
+    # Cao-Dowd vs mlsynth's SPILLSYNTH(method="cd") on frozen fixtures.
+    "cd_vs_mlsynth": "cases.cd_vs_mlsynth",
 }

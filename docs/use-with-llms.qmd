@@ -51,18 +51,47 @@ result.diagnostics()    # DataFrame: mean/sd/quantiles/ESS/R-hat per chain
 result.plot(kind="panel")   # counterfactual | effect | top spillovers
 ```
 
-For Cao–Dowd, pass `load_california_cd(51).config_kwargs()` to `SCSPILL`;
-the `SCSPILLResults` it returns (`method="cd"`) has `effects_panel`, `effect_ci`,
-`pointwise_p_values`, `test_hypothesis` and `kappa_test`. See the
-[`cd` model page](models/cd.qmd).
+The `cd` model (Cao & Dowd) uses the same estimator and result type:
+
+```python
+from scspill.data import load_california_cd
+
+result = SCSPILL(
+    {
+        "method": "cd",
+        "df": df, "outcome": "cigs", "treat": "treated",
+        "unitid": "state", "time": "year",
+        "affected_units": ["AZ", "NV", "OR"],   # controls that may be exposed
+        # or spillover_structure="homogeneous" | "distance_decay"
+        #    (with unit_distances={...}) | "custom" (with effect_matrix=A)
+        "display_graphs": False,
+    }
+).fit()                    # or: SCSPILL(load_california_cd(51).config_kwargs()).fit()
+
+result.att                 # average direct effect on the (first) treated unit
+result.effects_panel       # (T1, units) DataFrame: direct effects and spillovers
+result.effect_ci["NV"]     # pointwise interval of one unit's effect, by period
+result.pointwise_p_values  # P value of every unit's effect, by period
+result.test_hypothesis(C, d=0, period=1990)   # any C @ alpha_t = d
+result.kappa_test          # structure test by period
+result.cd.sensitivity      # bias bounds under missed spillovers
+```
+
+See the [`cd` model page](models/cd.qmd).
 
 ## Rules of thumb for agents
 
 - The treated unit and the treatment date are inferred from the `treat`
   column — there is no `treated_unit` argument.
+- One config for every model: `method` selects it (`"sar"` by default), and
+  setting a field of the other model (e.g. `seed` with `method="cd"`) raises
+  `ScspillConfigError`. Fields are marked `(method='sar')` / `(method='cd')`.
+- `cd`'s defaults are the paper's (v3 Section 4) inference;
+  `quantile_method="linear"` and `ci_method="published"` reproduce the
+  authors' application code.
 - Spatial weights align **by label**; pass pandas objects whenever you have
   labels. Raw/unnormalized weights are fine (normalization is internal).
-- `rho` is the weakly identified parameter: for real analyses use tens of
+- `sar`: `rho` is the weakly identified parameter: for real analyses use tens of
   thousands of iterations and check `result.rho_ess` and
   `result.diagnostics()`.
 - Errors are typed: `ScspillConfigError` (bad configuration),

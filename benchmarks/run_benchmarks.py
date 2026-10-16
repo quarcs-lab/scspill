@@ -62,8 +62,10 @@ def write_report(results: list[dict]) -> None:
     lines = [
         "# scspill validation report",
         "",
-        "Cross-validation of the Python port against the frozen results of the",
-        "R replication package (see `reference/values.json` for provenance).",
+        "Cross-validation of the `sar` model against the frozen results of the",
+        "R replication package (see `reference/values.json` for provenance), and",
+        "of the `cd` model against the Cao-Dowd authors' frozen output, the paper,",
+        "and mlsynth (see `reference/cao_dowd/` and `reference/mlsynth_cd/`).",
         "",
         "| Case | Status | Time |",
         "| --- | --- | --- |",

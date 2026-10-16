@@ -15,13 +15,19 @@ every model returns two things classical synthetic control cannot both give
 you: the effect on the treated unit, purged of contamination, and the
 spillover effect received by each donor.
 
-One model ships today — [`sar`](models/sar.qmd), the Bayesian
-spatial-autoregressive method of Sakaguchi & Tagawa (*Identification and
-Bayesian Inference for Synthetic Control Methods with Spillover Effects*, The
-Econometrics Journal), which models the leakage through user-supplied spatial
-weights, a horseshoe-regularized donor fit, and one estimated spillover
-intensity $\rho$. The [model catalogue](models/index.qmd) lists it, names the
-models on the roadmap, and marks plainly which are implemented.
+Two models ship today, behind one configuration and one result type:
+
+- [`sar`](models/sar.qmd) (the default) is the Bayesian spatial-autoregressive
+  method of Sakaguchi & Tagawa (*The Econometrics Journal*). It models the
+  leakage through user-supplied spatial weights, a horseshoe-regularized donor
+  fit, and one estimated spillover intensity $\rho$.
+- [`cd`](models/cd.qmd) is the method of Cao & Dowd (arXiv:1902.07343v3).
+  Every unit gets its own synthetic control, a known exposure structure
+  separates the direct effect from each spillover, and end-of-sample P tests
+  give the inference.
+
+The [model catalogue](models/index.qmd) compares them, names the models on
+the roadmap, and marks plainly which are implemented.
 
 ```{=html}
 <div class="hero-cta">
@@ -35,9 +41,10 @@ models on the roadmap, and marks plainly which are implemented.
 
 ::: {.g-col-12 .g-col-md-4 .module-card}
 ### [🎯 Estimate](get-started.qmd)
-Pick a model, configure once, fit once. Today that model is **`sar`**:
-`SCSPILL(config).fit()` runs the **two-step Bayesian sampler** and returns the ATT with credible intervals, the counterfactual
-path, the posterior of $\rho$, and a **time-by-donor spillover panel**.
+Pick a model, configure once, fit once. `SCSPILL(config).fit()` returns the
+ATT, the counterfactual path, and a **time-by-donor spillover panel** for
+either model. **`sar`** runs a two-step Bayesian sampler; **`cd`** fits an SCM
+per unit and tests any spillover hypothesis.
 
 ```{=html}
 <div class="module-card__links">
@@ -67,7 +74,7 @@ RMSE, and coverage across estimators.
 | Model | `method` | Reference | Status |
 |---|---|---|---|
 | [Bayesian spatial-autoregressive spillover SCM](models/sar.qmd) | `"sar"` | Sakaguchi & Tagawa (2026), *Econometrics Journal* | **Available** |
-| [SCM with spillover effects](models/cd.qmd) | `"cd"` | Cao & Dowd (2019, rev. 2026) | **Available** |
+| [Synthetic control under a known spillover structure](models/cd.qmd) | `"cd"` | Cao & Dowd, arXiv:1902.07343v3 | **Available** |
 | Inclusive synthetic control | `"iscm"` | Di Stefano & Mellace (2024) | Planned |
 | Partial-interference SCG | `"grossi"` | Grossi et al. (2025), *JRSS-A* | Planned |
 
@@ -94,11 +101,36 @@ collapses exactly to the Bayesian horseshoe synthetic control.
 | optional covariate columns | a $(T \times N)$ spillover panel with credible bands per donor |
 |  | MCMC diagnostics and R-style plot panels |
 
+## What a `cd` fit needs and returns
+
+Every unit gets an intercept-adjusted simplex synthetic control. You state
+which controls the treatment can reach, and how:
+
+- named units with free effects (`affected_units`);
+- one effect shared by a group (`spillover_structure="homogeneous"`);
+- a spillover decaying with distance (`"distance_decay"`);
+- any exposure matrix (`"custom"`).
+
+The model separates the direct effect from each spillover in every
+post-treatment period.
+
+| You provide | scspill returns |
+|---|---|
+| a long panel `df` and a 0/1 treatment column (one or several treated units) | `effects_panel` — every unit's effect by period |
+| the exposed units, or a structure | `effect_ci`, `pointwise_p_values` — pointwise intervals and P tests |
+|  | `test_hypothesis(C)` — any linear hypothesis, e.g. "no spillover anywhere" |
+|  | `kappa_test`, `select_structure_by_kappa()` — is the structure right? |
+|  | `cd.sensitivity` — how much a missed spillover could bias the result |
+
 ## Bundled case studies
 
 - **California Proposition 99** — 39 states, 1970–2000, per-capita cigarette
   sales, rook-contiguity weights (`scspill.data.load_california()`): the
-  paper's tobacco-tax application where the spillover lands on Nevada.
+  `sar` paper's tobacco-tax application, where the spillover lands on Nevada.
+- **[Proposition 99 with a known structure](prop99-spillovers.qmd)** — Cao &
+  Dowd's 50 states plus DC, 1970–2000, with the 13 exposed states
+  (`scspill.data.load_california_cd()`). The `cd` model finds leakage into
+  Nevada, and the page sets it beside `sar`.
 - **The 2011 Sudan secession** — 34 African countries, 2000–2015, GDP per
   capita, bilateral-trade weights (`scspill.data.load_sudan()`): spillovers
   travel the trade network to Egypt and Kenya.
@@ -126,7 +158,16 @@ result.spillover_panel["Nevada"]   # the effect received by Nevada
 result.plot(kind="panel")          # counterfactual | effect | top spillovers
 ```
 
-## `sar` is validated, not just implemented
+```python
+from scspill.data import load_california_cd
+
+cd = SCSPILL(load_california_cd(51).config_kwargs()).fit()   # method="cd"
+cd.effects_panel[["CA", "NV"]]     # direct effect and Nevada's spillover, by year
+cd.effect_ci["NV"]                 # their pointwise 95% intervals
+cd.plot(kind="spillover")          # every exposed state's effect
+```
+
+## Validated, not just implemented
 
 Every release is cross-validated against the authors' R replication package
 (see the [validation article](articles/validation.qmd) and
@@ -136,6 +177,15 @@ Carlo grid against the paper's Tables 1–2, and the sampler itself passes the
 Geweke joint distribution test — which also caught, and led us to fix, two
 internal inconsistencies in the reference implementation's latent-factor
 block.
+
+`cd` is checked against three independent sources (see
+[Replicating Cao & Dowd](articles/cd-replication.qmd)):
+
+- **the paper:** the significance of the early years, and Figure 3's
+  break-even points 17.07 and 9.66;
+- **the authors' code:** every P value of their Proposition 99 output, and
+  their simulation statistics;
+- **mlsynth's implementation:** to solver tolerance.
 
 ## Built on
 

@@ -24,18 +24,27 @@ express at all.
 | Model | `method` | Reference | Class | Docs |
 |---|---|---|---|---|
 | Bayesian spatial-autoregressive spillover SCM | `"sar"` | [Sakaguchi & Tagawa (2026)](https://doi.org/10.1093/ectj/utag006), *The Econometrics Journal* | `SCSPILL` | [`sar`](https://quarcs-lab.github.io/scspill/models/sar.html) |
-| SCM with spillover effects | `"cd"` | [Cao & Dowd (arXiv:1902.07343v3)](https://arxiv.org/abs/1902.07343v3) | `SCSPILL` | [`cd`](https://quarcs-lab.github.io/scspill/models/cd.html) |
+| Synthetic control under a known spillover structure | `"cd"` | [Cao & Dowd (arXiv:1902.07343v3)](https://arxiv.org/abs/1902.07343v3) | `SCSPILL` | [`cd`](https://quarcs-lab.github.io/scspill/models/cd.html) |
 
-`sar` routes spillovers through spatial weights you
-supply, scaled by a single intensity ρ that is estimated rather than assumed,
-fits unconstrained horseshoe-shrunk synthetic weights, and returns full
-Bayesian uncertainty for both estimands. At ρ = 0 it collapses exactly to the
-Bayesian horseshoe synthetic control.
+Both models are selected through one configuration, `SCSPILLConfig(method=...)`,
+and return one result type.
 
-`cd` uses intercept-adjusted SCM equations for every unit and a specified
-exposure structure to recover direct and spillover effects. It includes
-Andrews P tests and a structure test. The inclusive SCM of Di Stefano &
-Mellace and partial-interference SCG of Grossi et al. remain on the
+- **`sar`** (the default) routes spillovers through spatial weights you
+  supply, scaled by a single intensity ρ that is estimated rather than
+  assumed. It fits unconstrained horseshoe-shrunk synthetic weights and
+  returns full Bayesian uncertainty for both estimands. At ρ = 0 it collapses
+  exactly to the Bayesian horseshoe synthetic control.
+- **`cd`** fits an intercept-adjusted simplex synthetic control for *every*
+  unit. A known exposure structure then separates the direct effect from each
+  spillover in every post-treatment period. The structure can be named units
+  with free effects, one shared spillover, a spillover decaying with
+  distance, or any exposure matrix. Andrews-type P tests give the inference
+  for any linear hypothesis; the κ_A test checks the structure; a sensitivity
+  analysis bounds the bias of missed spillovers. Its defaults are the paper's
+  (v3) definitions.
+
+The inclusive SCM of Di Stefano & Mellace and the partial-interference SCG
+of Grossi et al. remain on the
 [roadmap](https://quarcs-lab.github.io/scspill/models/#planned).
 
 The estimator architecture follows
@@ -73,6 +82,21 @@ result.diagnostics()               # ESS / R-hat / MCSE per chain
 result.plot(kind="panel")          # counterfactual | effect | top spillovers
 ```
 
+```python
+import numpy as np
+from scspill.data import load_california_cd
+
+cd = SCSPILL(load_california_cd(51).config_kwargs()).fit()   # method="cd"
+
+cd.att                             # average direct effect on California
+cd.effects_panel[["CA", "NV"]]     # direct effect and Nevada's spillover, by year
+cd.effect_ci["NV"]                 # pointwise 95% intervals (P-test inversion)
+no_spill = np.eye(len(cd.unit_labels))[1:]          # every unit but California
+cd.test_hypothesis(no_spill, period=1990)         # "no spillover anywhere" in 1990
+cd.kappa_test                      # is the assumed structure right?
+cd.plot(kind="spillover")          # every exposed state's effect with intervals
+```
+
 ## Package layout
 
 | Subpackage | What it does | Docs |
@@ -80,9 +104,9 @@ result.plot(kind="panel")          # counterfactual | effect | top spillovers
 | `scspill` | The model layer. `SCSPILL(config).fit()` dispatches the Bayesian `sar` and Cao–Dowd `cd` estimators | [Models](https://quarcs-lab.github.io/scspill/models/) |
 | `scspill.validation` | `sar`'s sampler validation: the Geweke (2004) joint distribution test, prior-sensitivity grids, prior predictive checks | [Validation](https://quarcs-lab.github.io/scspill/articles/validation.html) |
 | `scspill.simulate` | `sar`'s Monte Carlo engine: rook-lattice SAR DGP, SCM/BSCM/SCSPILL comparison, the Tables 1–2 grid | [Simulation study](https://quarcs-lab.github.io/scspill/articles/simulation-study.html) |
-| `scspill.data` | California and Sudan panels, plus the authors' 51/41-unit Cao–Dowd Proposition 99 data | [Datasets](https://quarcs-lab.github.io/scspill/articles/datasets.html) |
+| `scspill.data` | The bundled case studies: California and Sudan (`sar`), and Cao & Dowd's 51/41-unit Proposition 99 panel (`cd`) | [Datasets](https://quarcs-lab.github.io/scspill/articles/datasets.html) |
 
-## `sar` is validated, not just implemented
+## Validated, not just implemented
 
 The `sar` model is cross-validated against the authors' R replication
 package (`python benchmarks/run_benchmarks.py --all --report`): California
@@ -95,6 +119,17 @@ missing horseshoe prior, alpha-frozen credible intervals, two incoherent
 factor-block conditionals) are fixed here, each with an escape hatch or a
 benchmark quantifying the difference — see the
 [`sar` model page](https://quarcs-lab.github.io/scspill/models/sar.html).
+
+The `cd` model is checked against three independent sources:
+
+- **the paper (v3):** its statements on the Proposition 99 application,
+  including Figure 3's sensitivity break-even points;
+- **the authors' replication code:** every P value of their Proposition 99
+  output, and the statistics of their simulation code;
+- **mlsynth's `SPILLSYNTH(method="cd")`:** to solver tolerance, with identical
+  P values.
+
+See [Replicating Cao & Dowd](https://quarcs-lab.github.io/scspill/articles/cd-replication.html).
 
 ## Documentation
 
@@ -136,7 +171,10 @@ stack follows [geometrics](https://github.com/quarcs-lab/geometrics), from the
 [QuaRCS lab](https://quarcs.netlify.app/), where scspill is developed. The
 `sar` model is cross-validated, every release, against the MIT-licensed
 [replication package](https://doi.org/10.5281/zenodo.19066186) for the article
-it implements; that package's copyright notice is retained in `LICENSE`.
+it implements; that package's copyright notice is retained in `LICENSE`. The
+`cd` model implements Jianfei Cao and Connor Dowd's method and is checked
+against their [replication repository](https://github.com/jcao0/synthetic-control-spillover);
+its implementation was contributed by Hayato Tagawa.
 
 ## License
 

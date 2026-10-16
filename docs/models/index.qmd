@@ -27,13 +27,13 @@ worth having more than one — run two and they bracket the answer.
 
 ## Available now
 
-scspill implements two models. `sar` remains the default, and `cd` uses a
-specified spillover structure and pre-treatment P-test reference distribution.
+scspill implements two models, both selected through `SCSPILLConfig.method`
+and both returning a `SCSPILLResults`. `sar` is the default.
 
 | Model | `method` | Reference | Class | Page |
 |---|---|---|---|---|
 | Bayesian spatial-autoregressive spillover SCM | `"sar"` | Sakaguchi & Tagawa (2026), *The Econometrics Journal*, [doi:10.1093/ectj/utag006](https://doi.org/10.1093/ectj/utag006) | `SCSPILL` | [`sar` →](sar.qmd) |
-| SCM with spillover effects | `"cd"` | Cao & Dowd, [arXiv:1902.07343v3](https://arxiv.org/abs/1902.07343v3) | `SCSPILL` | [`cd` →](cd.qmd) |
+| Synthetic control under a known spillover structure | `"cd"` | Cao & Dowd, [arXiv:1902.07343v3](https://arxiv.org/abs/1902.07343v3) | `SCSPILL` | [`cd` →](cd.qmd) |
 
 ### `sar` — spillovers as a spatial process
 
@@ -64,15 +64,33 @@ Full statement of the model, the identification theorem, the samplers, and the
 six documented departures from the authors' R replication package are on
 [the `sar` page](sar.qmd).
 
-### `cd` — spillovers under a specified structure
+### `cd` — spillovers under a known structure
 
-`cd` estimates an intercept and simplex synthetic-control weights for each
-unit, then uses a fixed exposure matrix $A$ to separate direct and spillover
-effects by post-treatment period. Andrews P tests use pre-treatment variation;
-the $\kappa_A$ test checks whether the specified structure fits. The
-[model page](cd.qmd) documents the 51-state Proposition 99 replication,
-inference options, and the distinction between the paper's P-test interval
-and the published application's interval calculation.
+`cd` keeps every unit and fits a synthetic control for each of them, not just
+the treated one: an intercept plus simplex weights on all the others. You
+state which units the treatment can reach through an exposure matrix $A$:
+named units with free effects, one effect shared by a group, or a spillover
+that decays with distance. The model then separates the direct effect from
+each spillover in every post-treatment period by least squares on the units'
+own SCM residuals. Inference is Andrews' end-of-sample P test, generalized to
+any linear hypothesis $C\alpha_t = d$. It approximates the null by the same
+statistic on the pre-treatment residuals, so it needs no asymptotics in the
+number of units. The $\kappa_A$ test then checks the assumed structure
+against the data, and a sensitivity analysis bounds the bias from spillovers
+the structure missed.
+
+**Reach for it when** you can name the exposed units, or describe the
+exposure (shared, decaying with distance), but not a full spatial process;
+when you want a test of "no spillover at all"; or when you want each exposed
+unit's own spillover path. **Look elsewhere when** the exposure is diffuse
+and you cannot say who is clean: a structure that gives every control the
+same spillover is not identified. Also look elsewhere when the pre-period is
+very short, since the P values are bounded below by $1/T_0$.
+
+The [`cd` page](cd.qmd) states the estimator, the tests, and where scspill's
+defaults differ from the authors' application code. The
+[Proposition 99 case study](../prop99-spillovers.qmd) works through it and
+sets it beside `sar`.
 
 ## Planned {#planned}
 
@@ -101,19 +119,21 @@ standardized results object out — and the four models above are exactly the
 four its `SPILLSYNTH` dispatcher exposes as
 `method="sar" | "cd" | "iscm" | "grossi"`. The names here are deliberately
 identical, so moving between the two libraries is a rename rather than a
-rewrite. Where scspill goes further is depth: it carries the `sar` model's
-full appendix machinery — the Geweke joint distribution test, prior
+rewrite. Where scspill goes further is depth. For `sar` it carries the
+model's full appendix machinery: the Geweke joint distribution test, prior
 sensitivity grids, prior predictive checks, a Monte Carlo engine, and a
-benchmark suite pinned to the authors' frozen R results.
+benchmark suite pinned to the authors' frozen R results. Its `cd` is
+[cross-checked against mlsynth's](../articles/cd-replication.qmd) and also
+against the paper and the authors' own code.
 
 ## References
 
 - Sakaguchi, S., & Tagawa, H. (2026). *Identification and Bayesian Inference
   for Synthetic Control Methods with Spillover Effects.* The Econometrics
   Journal. <https://doi.org/10.1093/ectj/utag006>
-- Cao, J., & Dowd, C. (2019, rev. 2026). *Estimation and Inference for
-  Synthetic Control Methods with Spillover Effects.*
-  <https://arxiv.org/abs/1902.07343>
+- Cao, J., & Dowd, C. *Estimation and Inference for Synthetic Control
+  Methods with Spillover Effects.* arXiv:1902.07343v3.
+  <https://arxiv.org/abs/1902.07343v3>
 - Di Stefano, R., & Mellace, G. (2024). *The Inclusive Synthetic Control
   Method.* <https://arxiv.org/abs/2403.17624>
 - Grossi, G., Mariani, M., Mattei, A., Lattarulo, P., & Öner, Ö. (2025).

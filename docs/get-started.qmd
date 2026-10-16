@@ -147,6 +147,9 @@ run long chains for publication numbers. The
 
 - [The Sudan case study](sudan.qmd): trade-network weights instead of
   contiguity, and spillovers measured in percent of GDP.
+- [Proposition 99 with a known spillover structure](prop99-spillovers.qmd):
+  the same policy through the `cd` model, which tests every exposed state's
+  spillover and sets the result beside this page's.
 - [The `sar` model page](models/sar.qmd): the identification result, the
   samplers, and exactly where this implementation deliberately departs from
   the R replication package.
