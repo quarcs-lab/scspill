@@ -15,6 +15,10 @@ package's ``plot.scspill`` types:
   ``"rho"``);
 * ``"trace"`` -- the ``rho`` chain trace (R type ``"trace"``);
 * ``"panel"`` -- the default 1x3 composite ``full | effect | spill_top``.
+
+The kinds drawn from the shared effect contract (``full``, ``effect``,
+``spill_top``, ``panel``, ``weights``) work for every model; the others are
+model-specific (see :data:`KINDS`).
 """
 
 from __future__ import annotations
@@ -29,7 +33,10 @@ from ..plotting import Plotter, scspill_style
 if TYPE_CHECKING:  # pragma: no cover
     from .structures import SCSPILLResults
 
-_KINDS = ("panel", "full", "effect", "spill_top", "weights", "rho", "trace")
+#: The plot kinds each model supports.
+KINDS: dict[str, tuple[str, ...]] = {
+    "sar": ("panel", "full", "effect", "spill_top", "weights", "rho", "trace"),
+}
 
 
 def plot_scspill(
@@ -74,8 +81,11 @@ def plot_scspill(
     ScspillPlottingError
         On an unknown ``kind`` or a plotting failure.
     """
-    if kind not in _KINDS:
-        raise ScspillPlottingError(f"Unknown plot kind {kind!r}; expected one of {_KINDS}.")
+    kinds = KINDS.get(results.method, ())
+    if kind not in kinds:
+        raise ScspillPlottingError(
+            f"Unknown plot kind {kind!r} for method={results.method!r}; expected one of {kinds}."
+        )
     import matplotlib.pyplot as plt
 
     pc = results.plot_config
@@ -137,7 +147,7 @@ def _draw_full(results: SCSPILLResults, plotter: Plotter, ax) -> None:
         treated_label=str(inputs.treated_label),
         intervention=inputs.time_labels[inputs.T0],
         interval=(eff.cf_lower, eff.cf_upper),
-        interval_label=f"{round(eff.ci_level * 100)}% credible interval",
+        interval_label=eff.interval_label,
         outcome="Outcome",
         time="Time",
         title="Observed vs. synthetic counterfactual",
@@ -154,7 +164,7 @@ def _draw_effect(results: SCSPILLResults, plotter: Plotter, ax) -> None:
         inputs.Y0 - eff.cf_mean,
         intervention=inputs.time_labels[inputs.T0],
         interval=(inputs.Y0 - eff.cf_upper, inputs.Y0 - eff.cf_lower),
-        interval_label=f"{round(eff.ci_level * 100)}% credible interval",
+        interval_label=eff.interval_label,
         outcome="Treatment effect",
         time="Time",
         title="Treatment effect on the treated",
@@ -185,7 +195,7 @@ def _draw_spill_top(results: SCSPILLResults, ax, top_n: int) -> None:
 
 
 def _draw_spill_grid(results: SCSPILLResults, top_n: int):
-    """Small-multiple grid of spillover paths with credible bands."""
+    """Small-multiple grid of spillover paths with their bands."""
     import matplotlib.pyplot as plt
 
     inputs = results.inputs
@@ -216,16 +226,33 @@ def _draw_spill_grid(results: SCSPILLResults, top_n: int):
     return fig, axes
 
 
+#: Legend of each model's donor weights, and of its comparator weights.
+_WEIGHT_LABELS = {
+    "sar": ("SCSPILL (posterior mean)", "Classical SCM"),
+    "cd": ("Cao-Dowd SCM equation", "Pure-donor SCM"),
+}
+
+
+def _comparator_weights(results: SCSPILLResults) -> dict[str, float] | None:
+    """Return the comparator weights drawn as markers (a no-spillover SCM)."""
+    if results.method == "sar":
+        return results.scm_weights or None
+    return None
+
+
 def _draw_weights(results: SCSPILLResults, ax, top_n: int = 15) -> None:
-    """Posterior-mean alpha vs. classical simplex-SCM weights."""
-    labels = [str(u) for u in results.inputs.control_labels]
-    alpha = results.alpha_hat
-    order = np.argsort(-np.abs(alpha))[:top_n][::-1]
+    """Draw the treated unit's donor weights against a comparator's."""
+    weights = results.donor_weights or {}
+    labels = list(weights)
+    w = np.asarray(list(weights.values()), dtype=float)
+    main_label, comparator_label = _WEIGHT_LABELS[results.method]
+    order = np.argsort(-np.abs(w))[:top_n][::-1]
     ypos = np.arange(order.size)
-    ax.barh(ypos, alpha[order], color="#1f77b4", alpha=0.85, label="SCSPILL (posterior mean)")
-    if results.scm_weights:
-        scm = np.array([results.scm_weights.get(labels[j], 0.0) for j in order])
-        ax.plot(scm, ypos, "o", color="crimson", markersize=5, label="Classical SCM")
+    ax.barh(ypos, w[order], color="#1f77b4", alpha=0.85, label=main_label)
+    comparator = _comparator_weights(results)
+    if comparator:
+        marks = np.array([comparator.get(labels[j], 0.0) for j in order])
+        ax.plot(marks, ypos, "o", color="crimson", markersize=5, label=comparator_label)
     ax.axvline(0.0, color="black", linewidth=0.8)
     ax.set_yticks(ypos)
     ax.set_yticklabels([labels[j] for j in order], fontsize=8)

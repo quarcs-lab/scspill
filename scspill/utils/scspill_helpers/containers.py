@@ -9,7 +9,7 @@ from them, so nothing here may import from those modules.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -127,36 +127,50 @@ class PanelInputs:
         return self.time_labels[self.T0 :]
 
 
-@dataclass(frozen=True)
-class SCSPILLEffects:
-    """Posterior treatment and spillover effects (Theorems 3.1-3.2).
+#: How an effects block's intervals were built: posterior credible bands
+#: (``sar``), or Cao--Dowd P-test intervals by test inversion or by the
+#: signed-quantile rule of the authors' application code (``cd``).
+IntervalKind = Literal["bayesian", "cd_inversion", "cd_published"]
 
-    All paths cover the full sample (pre and post periods); pre-period rows of
+
+@dataclass(frozen=True, kw_only=True)
+class SCSPILLEffects:
+    """Treatment and spillover effects: the contract every model fills.
+
+    All paths cover the full sample (pre and post periods). Pre-period rows of
     the spillover panel are fit residuals by construction, not causal
-    spillovers.
+    spillovers; the counterfactual band may be ``NaN`` where a model defines
+    no interval (``cd`` before treatment).
 
     Attributes
     ----------
     att : float
-        Posterior mean of the average treatment effect on the treated
-        (mean over the ``att_draws``).
-    att_ci : tuple of float
-        Equal-tailed credible interval for the ATT at level ``ci_level``.
+        Average treatment effect on the (headline) treated unit over the
+        post-treatment periods.
+    att_ci : tuple of float or None
+        Interval for the ATT at level ``ci_level``; ``None`` when the model
+        provides none (``cd`` reports pointwise intervals only).
+    cf_mean, cf_lower, cf_upper : np.ndarray
+        Point estimate and pointwise band of the treated unit's untreated
+        counterfactual path, each shape ``(T,)``.
+    spill_mean, spill_lower, spill_upper : pd.DataFrame
+        Point estimate and pointwise band of the spillover effects, each
+        ``(T, N)`` indexed by time labels with control-label columns.
+    ci_level : float
+        Level of all intervals.
+    interval_kind : {"bayesian", "cd_inversion", "cd_published"}
+        How the intervals were built.
+    att_scm : float or None
+        ATT of the no-spillover comparator: the plain synthetic control
+        (``sar``: the ``rho = 0`` Bayesian horseshoe SCM at ``alpha_hat``;
+        ``cd``: the treated unit's own SCM equation).
+
+    The remaining attributes are set by ``sar`` only (``None`` otherwise):
+
     att_draws : np.ndarray
         One ATT draw per retained posterior draw, shape ``(M,)``.
     att_plugin : float
         ATT evaluated at the posterior means ``(alpha_hat, rho_hat)``.
-    att_scm : float
-        ATT of the ``rho = 0`` special case (plain Bayesian horseshoe SCM at
-        ``alpha_hat``) -- the no-spillover comparator.
-    cf_mean, cf_lower, cf_upper : np.ndarray
-        Posterior mean and pointwise credible band of the treated unit's
-        untreated counterfactual path, each shape ``(T,)``.
-    spill_mean, spill_lower, spill_upper : pd.DataFrame
-        Posterior mean and pointwise credible band of the spillover effects,
-        each ``(T, N)`` indexed by time labels with donor-label columns.
-    ci_level : float
-        Credible level of all intervals.
     propagate_alpha : bool
         True when effect draws paired ``(alpha^(m), rho^(m))``; False when
         ``alpha`` was held at ``alpha_hat`` (the R package's convention).
@@ -165,10 +179,7 @@ class SCSPILLEffects:
     """
 
     att: float
-    att_ci: tuple[float, float]
-    att_draws: np.ndarray
-    att_plugin: float
-    att_scm: float
+    att_ci: tuple[float, float] | None
     cf_mean: np.ndarray
     cf_lower: np.ndarray
     cf_upper: np.ndarray
@@ -176,10 +187,20 @@ class SCSPILLEffects:
     spill_lower: pd.DataFrame
     spill_upper: pd.DataFrame
     ci_level: float
-    propagate_alpha: bool
-    n_draws_used: int
+    interval_kind: IntervalKind = "bayesian"
+    att_scm: float | None = None
+    att_draws: np.ndarray | None = None
+    att_plugin: float | None = None
+    propagate_alpha: bool | None = None
+    n_draws_used: int | None = None
 
     def __post_init__(self) -> None:
-        """Freeze the draw arrays."""
+        """Freeze the arrays."""
         for arr in (self.att_draws, self.cf_mean, self.cf_lower, self.cf_upper):
             _freeze_array(arr)
+
+    @property
+    def interval_label(self) -> str:
+        """Plot legend for the intervals, e.g. ``"95% credible interval"``."""
+        noun = "credible" if self.interval_kind == "bayesian" else "confidence"
+        return f"{round(self.ci_level * 100)}% {noun} interval"
