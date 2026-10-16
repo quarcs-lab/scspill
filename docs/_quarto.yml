@@ -119,10 +119,18 @@ quartodoc:
       package: scspill.utils.scspill_helpers.structures
       contents:
         - SCSPILLResults
-        - SCSPILLInputs
-        - AlphaPosterior
-        - SARPosterior
-        - SCSPILLEffects
+    - title: Result containers
+      desc: >-
+        The frozen dataclasses behind a result — the model-agnostic prepared
+        panel and effect contract, and the `sar` model's inputs and posterior
+        blocks.
+      package: scspill.utils.scspill_helpers
+      contents:
+        - containers.PanelInputs
+        - containers.SCSPILLEffects
+        - sar.structures.SARInputs
+        - sar.structures.AlphaPosterior
+        - sar.structures.SARPosterior
     - title: Validation & prior checks
       desc: >-
         The `sar` article's appendix machinery as user-facing functions — the

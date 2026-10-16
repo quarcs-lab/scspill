@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 
 from ....config_models import InferenceResults
-from ..structures import SCSPILLEffects
+from ..containers import SCSPILLEffects
 
 
 def build_inference(effects: SCSPILLEffects) -> InferenceResults:

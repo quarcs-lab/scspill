@@ -1,14 +1,15 @@
-"""Typed containers for the SCSPILL estimator.
+"""The public result of a SCSPILL fit.
 
-Frozen dataclasses for the estimation inputs and posterior blocks, plus the
-:class:`SCSPILLResults` pydantic model that exposes the standardized
+:class:`SCSPILLResults` is the pydantic model that exposes the standardized
 effect-result surface (``att``, ``att_ci``, ``counterfactual``, ``gap``,
-``donor_weights``) alongside the estimator-specific posterior objects.
+``donor_weights``) alongside each model's typed fit. The dataclass containers
+live next to the code that fills them -- the shared ones in
+:mod:`.containers`, each model's in its subpackage -- and are re-exported here
+under their historical import path.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -16,259 +17,28 @@ import pandas as pd
 from pydantic import ConfigDict
 
 from ...config_models import BaseEstimatorResults
+from .containers import PanelInputs, SCSPILLEffects, _freeze_array
+from .sar.structures import (
+    AlphaPosterior,
+    SARFit,
+    SARInputs,
+    SARPosterior,
+    SCSPILLFit,
+    SCSPILLInputs,
+)
 
-
-def _freeze_array(arr: np.ndarray | None) -> None:
-    """Mark an array read-only so frozen containers stay effectively immutable."""
-    if isinstance(arr, np.ndarray):
-        arr.setflags(write=False)
-
-
-@dataclass(frozen=True)
-class SCSPILLInputs:
-    """Prepared estimation inputs for the SCSPILL estimator.
-
-    Attributes
-    ----------
-    Y0 : np.ndarray
-        Treated-unit outcome path, shape ``(T,)``.
-    Yc : np.ndarray
-        Control-unit outcome matrix, shape ``(T, N)`` in ``control_labels``
-        column order.
-    Wn : np.ndarray
-        Row-normalized control-to-control spatial weight matrix, ``(N, N)``.
-    wn : np.ndarray
-        Sum-normalized treated-to-control exposure vector, ``(N,)``.
-    W_raw, w_raw : np.ndarray
-        The user-supplied spatial weights before normalization (label-aligned).
-    T0 : int
-        Number of pre-treatment periods.
-    X : np.ndarray or None
-        Covariate cube ``(T, N, K)`` for the control units, or ``None``.
-    treated_label : Any
-        Label of the treated unit.
-    control_labels : tuple
-        Donor labels in column order of ``Yc`` / ``Wn`` / ``wn``.
-    time_labels : np.ndarray
-        Sorted time labels, length ``T``.
-    covariate_names : tuple of str
-        Names of the covariate columns stacked into ``X``.
-    """
-
-    Y0: np.ndarray
-    Yc: np.ndarray
-    Wn: np.ndarray
-    wn: np.ndarray
-    W_raw: np.ndarray
-    w_raw: np.ndarray
-    T0: int
-    X: np.ndarray | None
-    treated_label: Any
-    control_labels: tuple[Any, ...]
-    time_labels: np.ndarray
-    covariate_names: tuple[str, ...] = ()
-
-    def __post_init__(self) -> None:
-        """Validate shape coherence and freeze the arrays."""
-        N = len(self.control_labels)
-        T = self.Y0.shape[0]
-        assert self.Yc.shape == (T, N), "Yc shape does not match (T, N)"
-        assert self.Wn.shape == (N, N), "Wn shape does not match (N, N)"
-        assert self.wn.shape == (N,), "wn shape does not match (N,)"
-        assert self.time_labels.shape[0] == T, "time_labels length does not match T"
-        if self.X is not None:
-            assert self.X.shape[:2] == (T, N), "X shape does not match (T, N, K)"
-        for arr in (
-            self.Y0,
-            self.Yc,
-            self.Wn,
-            self.wn,
-            self.W_raw,
-            self.w_raw,
-            self.X,
-            self.time_labels,
-        ):
-            _freeze_array(arr)
-
-    @property
-    def N(self) -> int:
-        """Number of control units."""
-        return len(self.control_labels)
-
-    @property
-    def T(self) -> int:
-        """Total number of time periods."""
-        return int(self.Y0.shape[0])
-
-    @property
-    def T1(self) -> int:
-        """Number of post-treatment periods."""
-        return self.T - self.T0
-
-    @property
-    def K(self) -> int:
-        """Number of covariates."""
-        return 0 if self.X is None else int(self.X.shape[2])
-
-    @property
-    def time_pre(self) -> np.ndarray:
-        """Pre-treatment time labels."""
-        return self.time_labels[: self.T0]
-
-    @property
-    def time_post(self) -> np.ndarray:
-        """Post-treatment time labels."""
-        return self.time_labels[self.T0 :]
-
-
-@dataclass(frozen=True)
-class AlphaPosterior:
-    """Step-1 posterior: horseshoe draws of the synthetic weights ``alpha``.
-
-    Attributes
-    ----------
-    draws : np.ndarray
-        Post-burn ``alpha`` draws in original outcome units, shape ``(M, N)``.
-    sigma2 : np.ndarray
-        Post-burn draws of the Step-1 error variance (on the standardized
-        scale), shape ``(M,)``.
-    alpha_hat : np.ndarray
-        Posterior mean of ``alpha``, shape ``(N,)`` -- the plug-in weights
-        used by Step 2.
-    iters, burn : int
-        Total iterations and burn-in of the sampler.
-    """
-
-    draws: np.ndarray
-    sigma2: np.ndarray
-    alpha_hat: np.ndarray
-    iters: int
-    burn: int
-
-    def __post_init__(self) -> None:
-        """Freeze the draw arrays."""
-        for arr in (self.draws, self.sigma2, self.alpha_hat):
-            _freeze_array(arr)
-
-
-@dataclass(frozen=True)
-class SARPosterior:
-    """Step-2 posterior: the SAR block conditional on ``alpha_hat``.
-
-    Attributes
-    ----------
-    rho : np.ndarray
-        Post-burn draws of the spillover intensity, shape ``(M,)``.
-    sigma2 : np.ndarray
-        Post-burn draws of the innovation variance, shape ``(M,)``.
-    beta : np.ndarray or None
-        Post-burn draws of the covariate coefficients, shape ``(M, K)``, or
-        ``None`` when there are no covariates.
-    rho_hat : float
-        Posterior mean of ``rho``.
-    acc_rho : float
-        Post-burn acceptance rate of the random-walk Metropolis step.
-    step_rho_final : float
-        Random-walk step size after burn-in adaptation (equals the initial
-        ``step_rho`` when adaptation is off).
-    rho_bound : float
-        Half-width of the admissible ``rho`` support,
-        ``0.95 / max(1, max |eig(Wn)|)``.
-    beta_prior : str
-        Prior used for ``beta``: ``"horseshoe"`` (paper) or ``"ridge"``
-        (R-code compatibility).
-    p_factors : int
-        Number of AR(1) latent factors in the error model.
-    iters, burn : int
-        Total iterations and burn-in of the sampler.
-    """
-
-    rho: np.ndarray
-    sigma2: np.ndarray
-    beta: np.ndarray | None
-    rho_hat: float
-    acc_rho: float
-    step_rho_final: float
-    rho_bound: float
-    beta_prior: str
-    p_factors: int
-    iters: int
-    burn: int
-
-    def __post_init__(self) -> None:
-        """Freeze the draw arrays."""
-        for arr in (self.rho, self.sigma2, self.beta):
-            _freeze_array(arr)
-
-
-@dataclass(frozen=True)
-class SCSPILLEffects:
-    """Posterior treatment and spillover effects (Theorems 3.1-3.2).
-
-    All paths cover the full sample (pre and post periods); pre-period rows of
-    the spillover panel are fit residuals by construction, not causal
-    spillovers.
-
-    Attributes
-    ----------
-    att : float
-        Posterior mean of the average treatment effect on the treated
-        (mean over the ``att_draws``).
-    att_ci : tuple of float
-        Equal-tailed credible interval for the ATT at level ``ci_level``.
-    att_draws : np.ndarray
-        One ATT draw per retained posterior draw, shape ``(M,)``.
-    att_plugin : float
-        ATT evaluated at the posterior means ``(alpha_hat, rho_hat)``.
-    att_scm : float
-        ATT of the ``rho = 0`` special case (plain Bayesian horseshoe SCM at
-        ``alpha_hat``) -- the no-spillover comparator.
-    cf_mean, cf_lower, cf_upper : np.ndarray
-        Posterior mean and pointwise credible band of the treated unit's
-        untreated counterfactual path, each shape ``(T,)``.
-    spill_mean, spill_lower, spill_upper : pd.DataFrame
-        Posterior mean and pointwise credible band of the spillover effects,
-        each ``(T, N)`` indexed by time labels with donor-label columns.
-    ci_level : float
-        Credible level of all intervals.
-    propagate_alpha : bool
-        True when effect draws paired ``(alpha^(m), rho^(m))``; False when
-        ``alpha`` was held at ``alpha_hat`` (the R package's convention).
-    n_draws_used : int
-        Number of posterior draws swept in the effects computation.
-    """
-
-    att: float
-    att_ci: tuple[float, float]
-    att_draws: np.ndarray
-    att_plugin: float
-    att_scm: float
-    cf_mean: np.ndarray
-    cf_lower: np.ndarray
-    cf_upper: np.ndarray
-    spill_mean: pd.DataFrame
-    spill_lower: pd.DataFrame
-    spill_upper: pd.DataFrame
-    ci_level: float
-    propagate_alpha: bool
-    n_draws_used: int
-
-    def __post_init__(self) -> None:
-        """Freeze the draw arrays."""
-        for arr in (self.att_draws, self.cf_mean, self.cf_lower, self.cf_upper):
-            _freeze_array(arr)
-
-
-@dataclass(frozen=True)
-class SCSPILLFit:
-    """Bundle of everything the pipeline produced (pre-results assembly)."""
-
-    inputs: SCSPILLInputs
-    alpha_posterior: AlphaPosterior
-    sar_posterior: SARPosterior
-    effects: SCSPILLEffects
-    scm_weights: dict[str, float] = field(default_factory=dict)
-    mcmc_summary_table: pd.DataFrame | None = None
+__all__ = [
+    "AlphaPosterior",
+    "PanelInputs",
+    "SARFit",
+    "SARInputs",
+    "SARPosterior",
+    "SCSPILLEffects",
+    "SCSPILLFit",
+    "SCSPILLInputs",
+    "SCSPILLResults",
+    "_freeze_array",
+]
 
 
 class SCSPILLResults(BaseEstimatorResults):
@@ -298,7 +68,7 @@ class SCSPILLResults(BaseEstimatorResults):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, extra="forbid")
 
     method: str = "sar"
-    inputs: SCSPILLInputs
+    inputs: SARInputs
     alpha_posterior: AlphaPosterior
     sar_posterior: SARPosterior
     effects_detail: SCSPILLEffects

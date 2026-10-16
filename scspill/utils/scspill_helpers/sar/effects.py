@@ -30,7 +30,8 @@ import numpy as np
 import pandas as pd
 
 from ....exceptions import ScspillEstimationError
-from ..structures import SCSPILLEffects, SCSPILLInputs
+from ..containers import SCSPILLEffects
+from .structures import SARInputs
 
 
 def _robust_solve(Amat: np.ndarray, B: np.ndarray) -> np.ndarray:
@@ -262,7 +263,7 @@ def _cache_y0(cache: dict) -> np.ndarray:
 
 
 def posterior_effects(
-    inputs: SCSPILLInputs,
+    inputs: SARInputs,
     alpha_draws: np.ndarray,
     rho_draws: np.ndarray,
     alpha_hat: np.ndarray,
@@ -283,7 +284,7 @@ def posterior_effects(
 
     Parameters
     ----------
-    inputs : SCSPILLInputs
+    inputs : SARInputs
         Prepared estimation inputs.
     alpha_draws : np.ndarray
         Step-1 draws, shape ``(M, N)``.
