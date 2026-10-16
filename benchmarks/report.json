@@ -2,18 +2,18 @@
   {
     "case": "california_sar",
     "ok": true,
-    "elapsed_s": 46.2,
+    "elapsed_s": 258.2,
     "rows": [
       {
         "metric": "rho_hat_r_spec",
-        "got": 0.18660679545444772,
+        "got": 0.1866067954561176,
         "lo": 0.0957,
         "hi": 0.2677,
         "ok": true
       },
       {
         "metric": "att",
-        "got": -17.032515407116417,
+        "got": -17.032515503139155,
         "lo": -25.0,
         "hi": -10.0,
         "ok": true
@@ -27,14 +27,14 @@
       },
       {
         "metric": "nevada_dominance_ratio",
-        "got": 10.10344783233896,
+        "got": 10.103447817681566,
         "lo": 3.0,
         "hi": Infinity,
         "ok": true
       },
       {
         "metric": "alpha_nevada",
-        "got": 0.20030161783867015,
+        "got": 0.20030161833684232,
         "lo": 0.1204,
         "hi": 0.2681,
         "ok": true
@@ -49,16 +49,16 @@
     ],
     "extra": {
       "rho_ci_r_spec": [
-        0.10218085314640935,
-        0.2619063109979668
+        0.10218085314798951,
+        0.26190631099971656
       ],
-      "rho_hat_paper_correct": 0.34618354508476856,
+      "rho_hat_paper_correct": 0.3461835450853728,
       "rho_ci_paper_correct": [
-        0.2758056811120312,
-        0.45420641636247616
+        0.2758056811124836,
+        0.4542064163633116
       ],
-      "rho_ess": 13.444464412911055,
-      "att_scm": -15.762839322881167,
+      "rho_ess": 13.444464412910865,
+      "att_scm": -15.762839405338472,
       "top5_spillover": "Nevada, Idaho, Utah, Wyoming, Montana"
     },
     "error": null
@@ -66,18 +66,18 @@
   {
     "case": "sudan_sar",
     "ok": true,
-    "elapsed_s": 42.7,
+    "elapsed_s": 360.0,
     "rows": [
       {
         "metric": "rho_hat_r_spec",
-        "got": 0.3946120380502795,
+        "got": 0.3946125025931354,
         "lo": 0.2941,
         "hi": 0.5498,
         "ok": true
       },
       {
         "metric": "att",
-        "got": -30.690888214460543,
+        "got": -30.907126754153428,
         "lo": -1000.0,
         "hi": -10.0,
         "ok": true
@@ -99,16 +99,16 @@
     ],
     "extra": {
       "rho_ci_r_spec": [
-        0.24201531358561107,
-        0.507523609928553
+        0.24201579017066752,
+        0.5075240655609687
       ],
-      "rho_hat_paper_correct": 0.4002117839213539,
+      "rho_hat_paper_correct": 0.40021299192490767,
       "rho_ci_paper_correct": [
-        0.2613004725135062,
-        0.5564329416933556
+        0.2613017084438055,
+        0.5564341182901895
       ],
-      "rho_ess": 31.298999375371388,
-      "att_percent_of_cf": -2.233202475350229,
+      "rho_ess": 31.298999375371185,
+      "att_percent_of_cf": -2.2485831294060277,
       "top5_spillover": "Egypt, Arab Rep., Kenya, Uganda, Algeria, Tunisia"
     },
     "error": null
@@ -116,7 +116,7 @@
   {
     "case": "geweke_full",
     "ok": true,
-    "elapsed_s": 229.3,
+    "elapsed_s": 227.3,
     "rows": [
       {
         "metric": "max_abs_z",
@@ -152,11 +152,11 @@
   {
     "case": "mc_grid_vs_r",
     "ok": true,
-    "elapsed_s": 55.4,
+    "elapsed_s": 386.9,
     "rows": [
       {
         "metric": "scspill_abs_bias_max",
-        "got": 0.0012130170985834065,
+        "got": 0.0012130170985833963,
         "lo": 0.0,
         "hi": 0.02,
         "ok": true
@@ -184,7 +184,7 @@
       },
       {
         "metric": "rmse_ratio_vs_r_max",
-        "got": 0.46028808355599504,
+        "got": 0.4602880835559952,
         "lo": 0.0,
         "hi": 2.0,
         "ok": true
@@ -207,7 +207,7 @@
   {
     "case": "prior_checks_ca",
     "ok": true,
-    "elapsed_s": 29.5,
+    "elapsed_s": 40.7,
     "rows": [
       {
         "metric": "pdiff_yc_mean",
@@ -292,6 +292,151 @@
         "avg_skewness": 0.484,
         "avg_kurtosis": 0.733
       }
+    },
+    "error": null
+  },
+  {
+    "case": "california_cd",
+    "ok": true,
+    "elapsed_s": 1.5,
+    "rows": [
+      {
+        "metric": "max_abs_effect_diff_51",
+        "got": 0.008400133194715664,
+        "lo": 0.0,
+        "hi": 0.03,
+        "ok": true
+      },
+      {
+        "metric": "max_abs_counterfactual_diff_51",
+        "got": 0.002502056785772311,
+        "lo": 0.0,
+        "hi": 0.03,
+        "ok": true
+      },
+      {
+        "metric": "p_value_mismatches_51",
+        "got": 0,
+        "lo": 0,
+        "hi": 0,
+        "ok": true
+      },
+      {
+        "metric": "spillover_test_mismatches_51",
+        "got": 0,
+        "lo": 0,
+        "hi": 0,
+        "ok": true
+      },
+      {
+        "metric": "max_abs_effect_diff_41",
+        "got": 0.004121364778448822,
+        "lo": 0.0,
+        "hi": 0.03,
+        "ok": true
+      },
+      {
+        "metric": "p_value_mismatches_41",
+        "got": 0,
+        "lo": 0,
+        "hi": 0,
+        "ok": true
+      },
+      {
+        "metric": "rank_matches_k_51",
+        "got": 1,
+        "lo": 1,
+        "hi": 1,
+        "ok": true
+      },
+      {
+        "metric": "ca_1989_1990_not_significant",
+        "got": 1,
+        "lo": 1,
+        "hi": 1,
+        "ok": true
+      },
+      {
+        "metric": "fig3_breakeven_p1",
+        "got": 17.06543527025728,
+        "lo": 17.065,
+        "hi": 17.075,
+        "ok": true
+      },
+      {
+        "metric": "fig3_breakeven_p2",
+        "got": 9.66391384329453,
+        "lo": 9.655,
+        "hi": 9.665,
+        "ok": true
+      }
+    ],
+    "extra": {
+      "condition_number_51": 12.485,
+      "max_abs_counterfactual_diff_41": 0.0007847614174920636,
+      "rank_matches_k_41": 1,
+      "condition_number_41": 4.341
+    },
+    "error": null
+  },
+  {
+    "case": "cd_vs_mlsynth",
+    "ok": true,
+    "elapsed_s": 1.4,
+    "rows": [
+      {
+        "metric": "max_abs_B_diff",
+        "got": 6.0809864679822745e-06,
+        "lo": 0.0,
+        "hi": 0.0001,
+        "ok": true
+      },
+      {
+        "metric": "max_rel_effect_diff",
+        "got": 1.4945815473427215e-07,
+        "lo": 0.0,
+        "hi": 0.0001,
+        "ok": true
+      },
+      {
+        "metric": "p_value_mismatches",
+        "got": 0,
+        "lo": 0,
+        "hi": 0,
+        "ok": true
+      },
+      {
+        "metric": "max_rel_kappa_diff",
+        "got": 2.0810286538441858e-07,
+        "lo": 0.0,
+        "hi": 0.0001,
+        "ok": true
+      },
+      {
+        "metric": "max_abs_sensitivity_diff",
+        "got": 4.5099669027104383e-07,
+        "lo": 0.0,
+        "hi": 0.0001,
+        "ok": true
+      },
+      {
+        "metric": "max_rel_efficient_diff",
+        "got": 3.3600934326423274e-12,
+        "lo": 0.0,
+        "hi": 0.0001,
+        "ok": true
+      },
+      {
+        "metric": "selection_agrees",
+        "got": 1,
+        "lo": 1,
+        "hi": 1,
+        "ok": true
+      }
+    ],
+    "extra": {
+      "cases": 6,
+      "mlsynth_version": "1.0.0"
     },
     "error": null
   }
