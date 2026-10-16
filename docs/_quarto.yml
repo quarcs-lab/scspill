@@ -27,28 +27,29 @@ website:
             file: models/sar.qmd
           - text: "cd — synthetic control under a known spillover structure"
             file: models/cd.qmd
-      - text: "Case studies"
-        menu:
-          - text: "Proposition 99 with a known spillover structure (cd vs sar)"
-            file: prop99-spillovers.qmd
-          - text: "The 2011 secession of South Sudan (sar)"
-            file: sudan.qmd
-      - text: "For AI / LLMs"
-        file: use-with-llms.qmd
       - text: "Articles"
         menu:
-          - text: "Validating the sampler (Geweke, prior checks)"
-            file: articles/validation.qmd
-          - text: "The Monte Carlo simulation study"
-            file: articles/simulation-study.qmd
+          - text: "Case study: Proposition 99 with a known spillover structure (cd vs sar)"
+            file: prop99-spillovers.qmd
+          - text: "Case study: the 2011 secession of South Sudan (sar)"
+            file: sudan.qmd
+          - text: "---"
           - text: "The cd model in practice: results and disagreements"
             file: articles/cd-results.qmd
           - text: "Replicating Cao & Dowd (cd)"
             file: articles/cd-replication.qmd
+          - text: "---"
+          - text: "Validating the sampler (Geweke, prior checks)"
+            file: articles/validation.qmd
+          - text: "The Monte Carlo simulation study"
+            file: articles/simulation-study.qmd
+          - text: "---"
           - text: "The bundled datasets"
             file: articles/datasets.qmd
       - text: "Reference"
         file: reference/index.qmd
+      - text: "For AI / LLMs"
+        file: use-with-llms.qmd
       - text: "Changelog"
         file: changelog.qmd
     right:
