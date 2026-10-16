@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.3.0 (2026-10-16)
+
+scspill's second model: `method="cd"`, Cao & Dowd's synthetic control under a
+known spillover structure, behind the same configuration and result type as
+`sar`, with new case studies and articles.
 
 ### New model: `cd` (Cao & Dowd)
 
@@ -78,6 +82,10 @@ Contributed by Hayato Tagawa, and restructured to the package's architecture.
 
 ### Documentation
 
+- **The website's top bar is reorganized**: Home, Get started, Models,
+  Articles, Reference, For AI / LLMs, Changelog. The two case studies
+  (Proposition 99 and the Sudan secession) are listed under Articles, and
+  their URLs are unchanged.
 - **New article, "The `cd` model in practice"** (`docs/articles/cd-results.qmd`).
   It covers usage, the Proposition 99 results, and four disagreements:
   `cd` vs `sar`, the paper vs the authors' code, the structure test rejecting

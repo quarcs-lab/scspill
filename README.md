@@ -155,7 +155,7 @@ If you use scspill, please cite it as (machine-readable metadata lives in
 `CITATION.cff`):
 
 > Mendez, C., Sakaguchi, S., & Tagawa, H. (2026). *Synthetic Control Models
-> with Spillovers in Python* (version 0.2.1).
+> with Spillovers in Python* (version 0.3.0).
 > <https://github.com/quarcs-lab/scspill>
 
 Authors: [Carlos Mendez](https://carlos-mendez.org) ·
