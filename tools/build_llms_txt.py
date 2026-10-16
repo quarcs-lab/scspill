@@ -41,6 +41,11 @@ PAGES = [
         "articles/simulation-study.html",
     ),
     (
+        "The cd model in practice: usage, results, and disagreements",
+        "articles/cd-results.qmd",
+        "articles/cd-results.html",
+    ),
+    (
         "Replicating Cao & Dowd (cd)",
         "articles/cd-replication.qmd",
         "articles/cd-replication.html",

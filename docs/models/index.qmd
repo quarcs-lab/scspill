@@ -90,7 +90,8 @@ very short, since the P values are bounded below by $1/T_0$.
 The [`cd` page](cd.qmd) states the estimator, the tests, and where scspill's
 defaults differ from the authors' application code. The
 [Proposition 99 case study](../prop99-spillovers.qmd) works through it and
-sets it beside `sar`.
+sets it beside `sar`, and [The `cd` model in practice](../articles/cd-results.qmd)
+examines where the two models, and the inference choices, disagree.
 
 ## Planned {#planned}
 

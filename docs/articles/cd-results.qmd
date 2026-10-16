@@ -1,0 +1,481 @@
+---
+title: "The `cd` model in practice"
+subtitle: "Usage, the Proposition 99 results, and where the answers disagree"
+---
+
+This article is for readers who want to use the [`cd` model](../models/cd.qmd)
+and to know how far to trust what it says. It shows the essential usage, the
+model's main results on Proposition 99, and four places where the answer
+depends on a choice:
+
+1. the model itself (`cd` against `sar`);
+2. the inference rule (the paper's against the authors' code);
+3. the assumed exposure structure (which the data reject);
+4. the statistic used to choose a structure (scspill's against mlsynth's).
+
+The main text stays plain. The formal details sit in the collapsed callouts.
+The [Proposition 99 case study](../prop99-spillovers.qmd) is the hands-on
+tutorial this article builds on.
+
+::: {.callout-note}
+## MCMC budget
+The `sar` fits on this page run a tutorial-scale chain
+(`m_iter=4000, burn=2000`) so the page renders in minutes. Treat their
+numbers as illustrative, and use tens of thousands of iterations for real
+work. The `cd` fits involve no simulation.
+:::
+
+```{python}
+import warnings
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+from scspill import SCSPILL
+from scspill.data import load_california, load_california_cd
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+root = Path.cwd()
+while not (root / "benchmarks").exists():   # docs pages execute in docs/articles
+    root = root.parent
+MCMC = {"m_iter": 4000, "burn": 2000, "seed": 42, "display_graphs": False}
+```
+
+## Using `cd`
+
+A fit needs a long panel with a 0/1 treatment column, and a statement of
+which controls the treatment can reach. Everything else has a default.
+
+```{python}
+panel = load_california_cd(51)          # 50 states + DC, California treated from 1989
+cd51 = SCSPILL({**panel.config_kwargs(), "display_graphs": False}).fit()
+```
+
+`panel.config_kwargs()` fills in `method="cd"`, the column names, and the
+paper's 13 exposed states. With your own data you write the dictionary
+yourself:
+
+```python
+SCSPILL({
+    "method": "cd", "df": df, "outcome": "y", "treat": "treated",
+    "unitid": "unit", "time": "year",
+    "affected_units": ["NV", "AZ"],              # per-unit spillovers (default)
+    # "spillover_structure": "homogeneous",      # one shared spillover
+    # "spillover_structure": "distance_decay", "unit_distances": {"NV": 0.5},
+    # "spillover_structure": "custom", "effect_matrix": A,
+}).fit()
+```
+
+| Question | Accessor |
+|---|---|
+| What is the effect on the treated unit? | `att`, `effects_panel["CA"]`, `effect_ci["CA"]` |
+| Did the treatment spill over, and onto whom? | `effects_panel[unit]`, `pointwise_p_values`, `test_hypothesis(C)` |
+| Is the assumed structure right? | `kappa_test`, `select_structure_by_kappa(candidates)` |
+| How much could a missed spillover bias the result? | `cd.sensitivity`, `plot(kind="sensitivity")` |
+
+::: {.callout-tip collapse="true"}
+## Formal details: the estimator and the test
+Every unit $i$ gets an intercept $\hat a_i$ and simplex weights $\hat b_i$ on
+the other units, fitted before treatment. With $R = I - \hat B$, the
+post-treatment equations $R Y_t - \hat a = R A \gamma_t + u_t$ give
+$\hat\gamma_t = (A'R'RA)^{-1}A'R'(RY_t - \hat a)$ and $\hat\alpha_t = A\hat\gamma_t$
+(Cao & Dowd v3, Section 3.2). A hypothesis $C\alpha_t = d$ is tested by
+$P = (C\hat\alpha_t - d)'W(C\hat\alpha_t - d)$, compared with the same
+quadratic form on the $T_0$ pre-treatment placebo effects $\hat G\hat u_s$,
+$\hat G = A(A'R'RA)^{-1}A'R'$. The test rejects above the left inverse of
+their empirical CDF at $1-\tau$ (Section 4.2), and intervals invert that test.
+:::
+
+## The main results
+
+**The direct effect.** Proposition 99 lowered California's consumption, but
+not at once:
+
+```{python}
+ca = cd51.effect_ci["CA"].assign(
+    estimate=cd51.effects_panel["CA"], p_value=cd51.pointwise_p_values["CA"]
+)
+ca.round(2).T
+```
+
+```{python}
+#| fig-cap: "Direct effect on California and the spillover on every exposed state, with 95% intervals."
+cd51.plot(kind="spillover", display=False);
+```
+
+The intervals cover zero from 1989 to 1992 and exclude it from 1993. The
+average over 1989–2000 is `{python} f"{cd51.att:.1f}"` packs per capita.
+California's own synthetic control, which ignores spillovers, gives
+`{python} f"{cd51.att_scm:.1f}"`.
+
+**Spillovers.** Nevada, the neighbour with no tobacco law of its own, shows
+leakage: its consumption rises in the first two years and then fades.
+Whether *any* exposed state was affected is one joint test per year:
+
+```{python}
+no_spillover = np.eye(len(cd51.unit_labels))[1:]   # every unit but California
+joint = pd.DataFrame(
+    {
+        t: {"p_value": f"{cd51.test_hypothesis(no_spillover, period=t).p_value:.3f}",
+            "reject": cd51.test_hypothesis(no_spillover, period=t).reject}
+        for t in cd51.effects_panel.index
+    }
+)
+joint
+```
+
+**Robustness to missed spillovers.** If one assumed-clean state in fact
+received a spillover, how large would it have to be to account for
+California's largest estimate? The answer is the paper's Figure 3:
+
+```{python}
+sens = cd51.cd.sensitivity
+largest = cd51.effects_panel["CA"].max()
+pd.DataFrame(
+    {f"{p} missed": {"spillover-aware": largest / sens.coefficients(p)[0],
+                     "pure-donor SCM": largest / sens.coefficients(p)[1]}
+     for p in (1, 2)}
+).round(2)
+```
+
+Dropping the exposed states and using only clean donors would be far more
+fragile: a smaller missed spillover suffices to explain the estimate away.
+
+## Disagreement 1: `cd` against `sar` — model or sample?
+
+On their default samples the two models disagree twice:
+
+- on the size of California's effect;
+- on the *sign* of Nevada's spillover.
+
+But they also differ in sample:
+
+- `sar`'s bundled panel is Abadie et al.'s 39 states, with sales measured
+  from 1988;
+- `cd`'s is Cao & Dowd's 51 units, with consumption measured from 1989.
+
+To separate the model from the sample, fit both models on all three samples:
+
+- `cd` on the 39-state panel, with Nevada as the exposed state (it is
+  California's only neighbour in that sample);
+- `sar` on the 51- and 41-unit panels, with rook-contiguity weights built
+  from the same Census source and rule as the bundled ones (see
+  `docs/articles/data/README.txt` in the repository).
+
+```{python}
+W = pd.read_csv(root / "docs" / "articles" / "data" / "cd_rook_W.csv", index_col="state")
+adh = load_california()
+fits = {
+    ("cd", "39 states (1988)"): SCSPILL(
+        {**adh.config_kwargs(method="cd"), "affected_units": ["Nevada"], "display_graphs": False}
+    ).fit(),
+    ("sar", "39 states (1988)"): SCSPILL({**adh.config_kwargs(), **MCMC}).fit(),
+}
+for spec in (51, 41):
+    cdp = load_california_cd(spec)
+    donors = sorted(set(cdp.df["state"]) - {"CA"})
+    label = f"{spec} units (1989)"
+    fits[("cd", label)] = SCSPILL({**cdp.config_kwargs(), "display_graphs": False}).fit()
+    fits[("sar", label)] = SCSPILL(
+        {"df": cdp.df, "outcome": "cigs", "treat": "treated", "unitid": "state",
+         "time": "year", "spatial_w": W.loc["CA", donors],
+         "spatial_W": W.loc[donors, donors], **MCMC}
+    ).fit()
+
+
+def nevada(model, fit):
+    label = "Nevada" if "Nevada" in fit.inputs.control_labels else "NV"
+    if model == "cd":
+        return fit.effects_panel[label].iloc[:2].to_numpy()
+    return fit.spillover_panel[label].loc[fit.inputs.time_post].iloc[:2].to_numpy()
+
+
+grid = pd.DataFrame(
+    {
+        key: {
+            "ATT on California": fit.att,
+            "ATT, no-spillover SCM": fit.att_scm,
+            "Nevada, 1st year": nevada(key[0], fit)[0],
+            "Nevada, 2nd year": nevada(key[0], fit)[1],
+            "rho (sar)": fit.rho_hat if key[0] == "sar" else np.nan,
+        }
+        for key, fit in fits.items()
+    }
+).T
+grid.round(2)
+```
+
+```{python}
+#| fig-cap: "California's effect path under both models on the three samples."
+fig, axes = plt.subplots(1, 2, figsize=(11, 4), sharey=True)
+for ax, model in zip(axes, ("cd", "sar")):
+    for (m, sample), fit in fits.items():
+        if m != model:
+            continue
+        t0 = fit.inputs.T0
+        years = fit.inputs.time_labels[t0:]
+        ax.plot(years, fit.gap[t0:], marker="o", markersize=3, label=sample)
+    ax.axhline(0, color="black", linewidth=0.8)
+    ax.set_title(f"{model}")
+    ax.set_xlabel("Year")
+axes[0].set_ylabel("Effect on California (packs per capita)")
+axes[0].legend(fontsize=8);
+```
+
+Reading the grid down the columns holds the sample fixed and changes the
+model. Reading along the rows holds the model fixed and changes the sample.
+
+- **The sign of Nevada's spillover is the model's.** On every sample `cd`
+  finds Nevada's consumption rising after 1989, and `sar` finds it falling
+  slightly.
+- **The size of California's effect depends on both.** `sar` puts it near
+  −15 to −17 packs on every sample. `cd` puts it nearer −10 on the Cao–Dowd
+  samples, and much closer to zero on the 39-state panel, where Nevada is
+  the only exposed state and absorbs a large leakage.
+
+The mechanism is the models' assumptions, not noise.
+
+- `cd` estimates a separate, unrestricted effect for every exposed state, so
+  leakage shows up as a positive spillover on Nevada. California's
+  counterfactual is built from the donors' *untreated* outcomes, so removing
+  Nevada's leakage lowers the counterfactual by Nevada's weight times the
+  leakage, which pulls California's direct effect toward zero. That weight
+  is what makes the samples differ:
+```{python}
+pd.Series(
+    {
+        "39 states (1988)": fits[("cd", "39 states (1988)")].scm_matrix.loc["California", "Nevada"],
+        "51 units (1989)": fits[("cd", "51 units (1989)")].scm_matrix.loc["CA", "NV"],
+        "41 units (1989)": fits[("cd", "41 units (1989)")].scm_matrix.loc["CA", "NV"],
+    },
+    name="Nevada's weight in California's synthetic control",
+).round(3)
+```
+
+  On the 39-state panel Nevada carries a quarter of California's synthetic
+  control. Its large leakage therefore moves California's estimate most
+  there.
+
+- `sar` lets the treated unit's outcome propagate to its neighbours through
+  one intensity $\rho$. With $\rho > 0$, a fall in California is passed on
+  as a fall in Nevada. The model cannot produce leakage, which moves Nevada
+  the other way, unless $\rho$ turns negative for *every* channel at once,
+  and the data put $\rho$ above zero on all three samples.
+
+::: {.callout-tip collapse="true"}
+## Formal details: the sign of `sar`'s spillover
+In `sar`, donor outcomes follow $\mathbf Y^c_t = \rho(\mathbf w Y_{0t} +
+\mathbf W \mathbf Y^c_t) + \dots$. Its identification result implies that
+the spillover vector is exactly
+$$
+\boldsymbol\xi^c_t = (\mathbf I - \rho\mathbf A)^{-1}\rho\,\mathbf w\,
+\bigl(Y_{0t} - \boldsymbol\alpha^\top \mathbf Y^c_t\bigr),
+\qquad \mathbf A = \mathbf W + \mathbf w\boldsymbol\alpha^\top ,
+$$
+the treated unit's observed gap propagated through the network. For small
+$\rho$, $(\mathbf I - \rho\mathbf A)^{-1} \approx \mathbf I$, so Nevada's
+spillover is about $\rho\, w_{\text{NV}}$ times California's gap: it has the
+sign of $\rho$ times California's change. In `cd`, $\alpha_{\text{NV},t}$ is a free
+parameter of $\gamma_t$; nothing ties its sign to $\alpha_{\text{CA},t}$.
+:::
+
+Neither model is "right". They encode different beliefs about how the
+policy travels. Run both: where they agree, as on a clearly negative effect
+from the mid-1990s, the conclusion does not hinge on the spillover
+assumption; where they disagree, as on Nevada, it does.
+
+## Disagreement 2: the paper against the authors' code
+
+scspill's defaults follow the paper (v3, Section 4). The authors'
+application code differs in two settings, and scspill keeps both as
+switches:
+
+- critical values: the paper uses the left inverse of the empirical CDF,
+  the code an interpolated quantile;
+- intervals: the paper inverts the test, the code adds signed placebo
+  quantiles to the estimate.
+
+```{python}
+code = SCSPILL(
+    {**panel.config_kwargs(), "quantile_method": "linear", "ci_method": "published",
+     "display_graphs": False}
+).fit()
+pd.DataFrame(
+    {
+        "paper: reject": [cd51.test_hypothesis(no_spillover, period=t).reject
+                          for t in cd51.effects_panel.index],
+        "code: reject": [code.test_hypothesis(no_spillover, period=t).reject
+                         for t in code.effects_panel.index],
+        "paper: CA interval": [f"[{lo:.1f}, {hi:.1f}]" for lo, hi in cd51.effect_ci["CA"].to_numpy()],
+        "code: CA interval": [f"[{lo:.1f}, {hi:.1f}]" for lo, hi in code.effect_ci["CA"].to_numpy()],
+    },
+    index=cd51.effects_panel.index,
+)
+```
+
+The two rules disagree on whether there was any spillover in 1994 and 1995,
+and on whether California's effect in 1991–1992 is significant. With 19
+pre-treatment years the left inverse is the largest reference statistic,
+while the interpolated quantile sits just below it. The signed-quantile
+interval is asymmetric and can exclude zero where the symmetric one does not.
+
+::: {.callout-tip collapse="true"}
+## Formal details: which way the quantiles go
+The placebo effects approximate the estimation error: $\hat\alpha_t - \alpha_t
+\approx G u_t$. A percentile interval for $\alpha_t$ inverts that,
+$[\hat\alpha_t - q_{1-\tau/2},\ \hat\alpha_t - q_{\tau/2}]$, subtracting the
+quantiles. The application code adds them, which coincides only for a
+symmetric placebo distribution. Inverting the squared test avoids the
+question: $\hat\alpha_t \pm \sqrt{q_{1-\tau}(\hat P)}$. The paper's own
+Figure 2 uses test inversion (Section 6.2).
+:::
+
+## Disagreement 3: the data reject the assumed structure
+
+The $\kappa_A$ test asks whether the part of the post-treatment residuals
+that the 13-state structure cannot explain looks like the pre-treatment
+residuals. It does not:
+
+```{python}
+#| fig-cap: "The kappa_A structure test by year for the paper's 13-state structure."
+cd51.plot(kind="kappa", display=False);
+```
+
+A rejection says something moved after 1989 that the structure does not
+capture. It does not say what. Three checks narrow it down.
+
+**Which states carry the unexplained part?** Split the unexplained residual
+by state, after 1989 and, for comparison, before:
+
+```{python}
+from scspill.utils.scspill_helpers.cd.estimation import effect_operator
+
+labels = list(cd51.unit_labels)
+B = cd51.scm_matrix.loc[labels, labels].to_numpy()
+a = cd51.intercepts[labels].to_numpy()
+op = effect_operator(B, cd51.effect_matrix.to_numpy())
+R = np.eye(len(labels)) - B
+Y, t0 = cd51.inputs.Y_units, cd51.inputs.T0
+unexplained = lambda block: (np.eye(len(labels)) - op.projector) @ (R @ block - a[:, None])
+post = pd.Series((unexplained(Y[:, t0:]) ** 2).sum(axis=1), index=labels)
+pre = pd.Series((unexplained(Y[:, :t0]) ** 2).sum(axis=1), index=labels)
+shares = pd.DataFrame({"share after 1989": post / post.sum(), "share before 1989": pre / pre.sum()})
+shares.sort_values("share after 1989", ascending=False).head(8).round(3)
+```
+
+The unexplained part is spread over many states, led by a handful of
+unexposed ones. The two largest contributors after 1989 were also among the
+hardest to fit before it.
+
+**Does a larger structure fix it?** Add the leading contributors to the
+exposed set and refit:
+
+```{python}
+top = [u for u in shares["share after 1989"].sort_values(ascending=False).index
+       if u not in cd51.inputs.affected_labels and u != "CA"]
+paper_set = list(cd51.inputs.affected_labels)
+rows = {}
+for name, extra in {"paper (13)": [], "+ top 3": top[:3], "+ top 5": top[:5]}.items():
+    fit = SCSPILL({**panel.config_kwargs(), "affected_units": paper_set + extra,
+                   "display_graphs": False}).fit()
+    stats = [k.statistic for k in fit.kappa_test.values()]
+    rows[name] = {
+        "added": ", ".join(extra) or "-",
+        "mean kappa_A": f"{np.mean(stats):.1f}",
+        "years rejected": sum(k.reject for k in fit.kappa_test.values()),
+        "ATT on California": f"{fit.att:.2f}",
+    }
+pd.DataFrame(rows).T
+```
+
+Adding them lowers the statistic but not the verdict, and it moves
+California's estimated effect substantially. The direct effect is sensitive
+to which states the analyst declares exposed. That is the misspecification
+bias of Section 5.1.1 made visible.
+
+**Is it the reference distribution?** Full-sample references come from
+fitted residuals, which are smaller than out-of-sample ones. Leave-one-out
+references raise the critical value:
+
+```{python}
+loo = SCSPILL({**panel.config_kwargs(), "reference_mode": "leave_one_period_out",
+               "display_graphs": False}).fit()
+pd.DataFrame(
+    {
+        "critical value": [cd51.kappa_test[1990].critical_value, loo.kappa_test[1990].critical_value],
+        "years rejected": [sum(k.reject for k in cd51.kappa_test.values()),
+                           sum(k.reject for k in loo.kappa_test.values())],
+    },
+    index=["full-sample references", "leave-one-out references"],
+).round(1)
+```
+
+The rejection survives. The most plausible reading is that California's
+neighbourhood is not the only thing that changed after 1989: national
+anti-smoking trends and other states' policies move many states in ways no
+fixed, small exposure set captures. A structure that gave *every* control
+the same spillover would absorb a common shift, but it is not identified,
+since every row of $\hat B$ sums to one. Report the test alongside the
+estimate. It is evidence about the design, not a defect of the estimator.
+
+## Disagreement 4: choosing a structure, scspill against mlsynth
+
+To choose among candidate structures, the paper minimizes a multi-period
+$\kappa_A$ (v3, Section S.1.3):
+
+$$
+\kappa_A = \frac{1}{\sqrt{T_1}}\Big\lVert \sum_{s=1}^{T_1}(I - \hat\Gamma_A)
+(R Y_{T_0+s} - \hat a)\Big\rVert .
+$$
+
+mlsynth averages the per-period norms instead. The two coincide only when
+the unexplained residual points the same way every period. Summing first
+lets transient noise cancel and rewards persistent misfit, which is what
+makes the paper's choice consistent. scspill uses the paper's statistic by
+default and mlsynth's with `statistic="mean_norm"`.
+
+```{python}
+candidates = {
+    "per unit: AZ, NV, OR": {"affected_units": ["AZ", "NV", "OR"]},
+    "homogeneous: AZ, NV, OR": {"spillover_structure": "homogeneous",
+                                "affected_units": ["AZ", "NV", "OR"]},
+    "per unit: NV": {"affected_units": ["NV"]},
+    "none": {"affected_units": []},
+}
+cd41 = fits[("cd", "41 units (1989)")]
+pd.DataFrame(
+    {
+        "scspill (v3 S.1.3)": cd41.select_structure_by_kappa(candidates).statistics,
+        "mlsynth (mean of norms)": cd41.select_structure_by_kappa(
+            candidates, statistic="mean_norm").statistics,
+    }
+).assign(**{"v3 rank": lambda d: d.iloc[:, 0].rank().astype(int),
+            "mlsynth rank": lambda d: d.iloc[:, 1].rank().astype(int)}).round(2)
+```
+
+On Proposition 99, and on the synthetic panel in the
+[replication article](cd-replication.qmd), the two statistics rank the
+candidates the same way, so the choice does not hinge on the definition
+here. The statistics are on different scales, though, so values from one
+cannot be compared with values from the other. When the residual misfit
+changes direction over the post-treatment period, the rankings can differ,
+and the paper's statistic is the one with a consistency result behind it.
+
+## What to take away
+
+- **Report the structure test.** On Proposition 99 the paper's structure is
+  rejected in nearly every year, and the direct effect moves with the exposed
+  set. The estimate is conditional on that choice.
+- **Run both models.** `cd` and `sar` agree that the program cut
+  consumption and that the cut grew. They disagree on how the policy spilled
+  over, and on how large the cut was. The sign of Nevada's spillover comes
+  from the model on every sample. The size of California's effect depends on
+  the model and, for `cd`, on the sample through Nevada's weight.
+- **Choose the inference rule deliberately.** The paper's and the code's
+  rules differ exactly where the evidence is thin: early years and marginal
+  rejections. scspill defaults to the paper's.
+- **Use the sensitivity analysis.** It tells you how large a missed
+  spillover would have to be to overturn a result, which is often the
+  question a referee asks.

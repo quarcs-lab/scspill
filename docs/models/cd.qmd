@@ -191,7 +191,9 @@ result = SCSPILL({**panel.config_kwargs(), "display_graphs": False}).fit()
 | `result.plot(kind=...)` | `panel`, `full`, `effect`, `spill_top`, `weights`, `spillover`, `kappa`, `sensitivity` |
 
 The [Proposition 99 case study](../prop99-spillovers.qmd) walks through all
-of it and sets `cd` beside `sar`.
+of it and sets `cd` beside `sar`. [The `cd` model in practice](../articles/cd-results.qmd)
+goes further: it separates model from sample in the `cd`/`sar` comparison,
+and it diagnoses why the structure test rejects.
 
 ## Where scspill departs from the authors' code {#departures}
 
