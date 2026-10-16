@@ -16,15 +16,14 @@ Both intervals are always stored; ``effect_ci`` is the one selected.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from scipy.optimize import minimize
 
 from ...config_models import (
-    BaseEstimatorConfig,
     BaseEstimatorResults,
     InferenceResults,
     MethodDetailsResults,
@@ -32,41 +31,52 @@ from ...config_models import (
 from ...exceptions import ScspillConfigError, ScspillDataError, ScspillEstimationError
 from ..results_helpers import build_effect_submodels, make_weights_results
 
+if TYPE_CHECKING:  # pragma: no cover
+    from .config import SCSPILLConfig
 
-class CDConfig(BaseEstimatorConfig):
-    """Cao--Dowd configuration for one treated unit and a fixed spillover map.
 
-    ``affected_units`` creates one effect parameter per named unit, including
-    the treated unit automatically.  Alternatively, ``effect_matrix`` is a
-    DataFrame with one row per unit and one column per effect parameter; it
-    must contain a direct-effect column supported only on the treated unit.
-    The latter permits homogeneous or otherwise structured spillovers.
+def validate_effect_matrix(
+    effect_matrix: pd.DataFrame, units: list[Any], treated: list[Any]
+) -> pd.DataFrame:
+    """Check a labeled exposure matrix ``A`` and return it in ``units`` row order.
+
+    Rows must be exactly the unit labels and columns unique and nonempty, with
+    finite entries. Each treated unit's row must be its own direct-effect
+    indicator: a single nonzero entry, equal to 1, in a column that is zero on
+    every other row. Anything else would mix a spillover into the treated
+    unit's effect, so the headline counterfactual would no longer be the
+    direct effect's.
+
+    Raises
+    ------
+    ScspillConfigError
+        On any violation.
     """
-
-    method: Literal["cd"] = "cd"
-    affected_units: list[Any] | None = None
-    effect_matrix: pd.DataFrame | None = None
-    reference_mode: Literal["full", "leave_one_period_out"] = "full"
-    quantile_method: Literal["linear", "empirical"] = Field(
-        default="linear",
-        description=(
-            "Critical-value rule for every P and kappa test. 'linear' is the "
-            "interpolated sample quantile of the authors' application code; "
-            "'empirical' is the paper's left inverse of the empirical CDF, also "
-            "used in the authors' Monte Carlo studies."
-        ),
-    )
-    ci_method: Literal["published", "inversion"] = Field(
-        default="published",
-        description=(
-            "Interval reported as effect_ci. 'published' adds signed placebo "
-            "quantiles to the estimate (the paper's tables); 'inversion' inverts "
-            "the squared P test and is symmetric."
-        ),
-    )
-    ci: float = Field(default=0.95, gt=0, lt=1)
-    scm_maxiter: int = Field(default=3000, ge=1)
-    scm_ftol: float = Field(default=1e-12, gt=0)
+    a = effect_matrix
+    if a.index.has_duplicates or set(a.index) != set(units):
+        raise ScspillConfigError("effect_matrix needs exactly one row per unit label.")
+    if a.columns.has_duplicates or a.shape[1] == 0:
+        raise ScspillConfigError("effect_matrix needs unique, nonempty columns.")
+    a = a.loc[list(units)].astype(float)
+    values = a.to_numpy()
+    if not np.isfinite(values).all():
+        raise ScspillConfigError("effect_matrix must be finite.")
+    rows = {label: k for k, label in enumerate(units)}
+    for label in treated:
+        row = values[rows[label]]
+        support = np.flatnonzero(row != 0)
+        if support.size != 1 or row[support[0]] != 1:
+            raise ScspillConfigError(
+                f"effect_matrix row {label!r} (a treated unit) must be a direct-effect "
+                "indicator: a single 1 and zeros elsewhere."
+            )
+        column = values[:, support[0]]
+        if np.count_nonzero(column) != 1:
+            raise ScspillConfigError(
+                f"effect_matrix column {a.columns[support[0]]!r} is the direct effect of "
+                f"{label!r}, so it must be zero for every other unit."
+            )
+    return a
 
 
 def _empirical_quantile(values: np.ndarray, probability: float) -> float:
@@ -76,7 +86,7 @@ def _empirical_quantile(values: np.ndarray, probability: float) -> float:
 
 
 def _critical_value(values: np.ndarray, probability: float, method: str) -> float:
-    """Critical value under ``quantile_method`` (see :class:`CDConfig`)."""
+    """Critical value under ``quantile_method`` (see ``SCSPILLConfig.quantile_method``)."""
     if method == "empirical":
         return _empirical_quantile(values, probability)
     if method == "linear":
@@ -212,7 +222,7 @@ class CDResults(BaseEstimatorResults):
 
 
 def _prepare(
-    config: CDConfig,
+    config: SCSPILLConfig,
 ) -> tuple[np.ndarray, tuple[Any, ...], np.ndarray, int, Any, pd.DataFrame]:
     """Validate and arrange the balanced panel as units by periods."""
     df = config.df
@@ -249,26 +259,12 @@ def _prepare(
     yy = y.loc[units].to_numpy(dtype=float)
     if len(units) < 3:
         raise ScspillDataError("At least three units are required for all-unit SCM.")
-    if config.effect_matrix is not None and config.affected_units is not None:
-        raise ScspillConfigError("Choose effect_matrix or affected_units, not both.")
-    if config.effect_matrix is not None:
-        a = config.effect_matrix
-        if a.index.has_duplicates or a.columns.has_duplicates or set(a.index) != set(units):
-            raise ScspillConfigError("effect_matrix needs unique rows matching every unit label.")
-        a = a.loc[units].astype(float)
-        if not np.isfinite(a.to_numpy()).all() or a.shape[1] == 0:
-            raise ScspillConfigError("effect_matrix must be finite and nonempty.")
-        direct = np.zeros(len(units))
-        direct[0] = 1
-        if not np.any(np.all(np.isclose(a.to_numpy().T, direct), axis=1)):
-            raise ScspillConfigError(
-                "effect_matrix must contain a direct-effect column for the treated unit."
-            )
+    if config.spillover_structure == "custom":
+        assert config.effect_matrix is not None  # enforced by SCSPILLConfig
+        a = validate_effect_matrix(config.effect_matrix, units, [label])
     else:
-        affected = [] if config.affected_units is None else list(config.affected_units)
-        if len(set(affected)) != len(affected) or any(x not in units for x in affected):
-            raise ScspillConfigError("affected_units must be distinct known unit labels.")
-        selected = [label] + [x for x in affected if x != label]
+        affected = list(config.affected_units or [])
+        selected = [label, *affected]
         a = pd.DataFrame(0.0, index=units, columns=selected)
         for x in selected:
             a.loc[x, x] = 1.0
@@ -391,7 +387,7 @@ def _projection(b: np.ndarray, a: np.ndarray) -> tuple[np.ndarray, np.ndarray, i
     return g, projector, rank, float((singular[0] / singular[-1]) ** 2)
 
 
-def fit_cd(config: CDConfig) -> CDResults:
+def fit_cd(config: SCSPILLConfig) -> CDResults:
     """Fit Cao--Dowd and compute pointwise and specification-test references."""
     y, labels, times, t0, treated, a_df = _prepare(config)
     a_matrix = a_df.to_numpy(dtype=float)

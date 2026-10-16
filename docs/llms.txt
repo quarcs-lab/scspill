@@ -51,7 +51,7 @@ quantile_method?, ci_method?}).fit() -> CDResults with .effects_panel,
 
 ### Top level
 
-`SCSPILL`, `SCSPILLConfig`, `SCSPILLResults`, `CDConfig`, `CDResults`
+`SCSPILL`, `SCSPILLConfig`, `SCSPILLResults`, `CDResults`
 
 ### scspill.validation
 

@@ -44,7 +44,7 @@ API_GROUPS = [
     (
         "Top level",
         "scspill",
-        ["SCSPILL", "SCSPILLConfig", "SCSPILLResults", "CDConfig", "CDResults"],
+        ["SCSPILL", "SCSPILLConfig", "SCSPILLResults", "CDResults"],
     ),
     ("scspill.validation", "scspill.validation", None),
     ("scspill.simulate", "scspill.simulate", None),

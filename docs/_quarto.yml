@@ -108,7 +108,6 @@ quartodoc:
         pointwise P tests, and kappa_A structure tests.
       package: scspill.utils.scspill_helpers.cd
       contents:
-        - CDConfig
         - CDResults
     - title: Results
       desc: >-

@@ -34,7 +34,7 @@ from ..exceptions import (
 )
 from ..utils.datautils import balance
 from ..utils.results_helpers import build_effect_submodels, make_weights_results
-from ..utils.scspill_helpers.cd import CDConfig, CDResults, fit_cd
+from ..utils.scspill_helpers.cd import CDResults, fit_cd
 from ..utils.scspill_helpers.config import SCSPILLConfig
 from ..utils.scspill_helpers.sar.inference import build_inference, prediction_interval_spec
 from ..utils.scspill_helpers.sar.pipeline import run_scspill
@@ -51,10 +51,9 @@ class SCSPILL:
 
     Parameters
     ----------
-    config : SCSPILLConfig, CDConfig, or dict
+    config : SCSPILLConfig or dict
         The estimation configuration; a dict is coerced into
-        :class:`scspill.config_models.SCSPILLConfig` or ``CDConfig`` according
-        to ``method``.
+        :class:`scspill.config_models.SCSPILLConfig`.
 
     Examples
     --------
@@ -72,20 +71,14 @@ class SCSPILL:
     ```
     """
 
-    def __init__(self, config: SCSPILLConfig | CDConfig | dict) -> None:
+    def __init__(self, config: SCSPILLConfig | dict) -> None:
         if isinstance(config, dict):
             try:
-                config = (
-                    CDConfig(**config)
-                    if config.get("method", "sar") == "cd"
-                    else SCSPILLConfig(**config)
-                )
+                config = SCSPILLConfig(**config)
             except ValidationError as exc:
                 raise ScspillConfigError(f"Invalid SCSPILL configuration: {exc}") from exc
-        if not isinstance(config, (SCSPILLConfig, CDConfig)):
-            raise ScspillConfigError(
-                "config must be a SCSPILLConfig, CDConfig, or a dict of fields."
-            )
+        if not isinstance(config, SCSPILLConfig):
+            raise ScspillConfigError("config must be a SCSPILLConfig or a dict of its fields.")
         self.config = config
         # Convenience attribute unpacking (mlsynth convention).
         self.df = config.df
@@ -117,7 +110,7 @@ class SCSPILL:
         """
         cfg = self.config
 
-        if isinstance(cfg, CDConfig):
+        if cfg.method == "cd":
             cd_result = fit_cd(cfg)
             if cfg.display_graphs:
                 cd_result.plot(kind="auto")

@@ -7,7 +7,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from scspill import SCSPILL, CDConfig, CDResults, ScspillConfigError, ScspillEstimationError
+from scspill import (
+    SCSPILL,
+    CDResults,
+    SCSPILLConfig,
+    ScspillConfigError,
+    ScspillEstimationError,
+)
 from scspill.data import load_california_cd
 from scspill.utils.scspill_helpers.cd import _scm_all
 
@@ -118,10 +124,11 @@ def test_labeled_effect_matrix_and_rank_failure():
     a = pd.DataFrame(0.0, index=labels[::-1], columns=["direct", "shared"])
     a.loc["CA", "direct"] = 1
     a.loc[["AZ", "NV", "OR"], "shared"] = 1
-    config = CDConfig(
+    config = SCSPILLConfig(
         **{
             **panel.config_kwargs(),
             "affected_units": None,
+            "spillover_structure": "custom",
             "effect_matrix": a,
             "display_graphs": False,
         }
@@ -137,6 +144,7 @@ def test_labeled_effect_matrix_and_rank_failure():
             {
                 **panel.config_kwargs(),
                 "affected_units": None,
+                "spillover_structure": "custom",
                 "effect_matrix": bad,
                 "display_graphs": False,
             }
@@ -219,7 +227,9 @@ def test_kappa_against_author_reference():
     homogeneous = pd.DataFrame(0.0, index=labels, columns=["direct", "shared"])
     homogeneous.loc["U00", "direct"] = 1
     homogeneous.loc[labels[1:14], "shared"] = 1
-    homogeneous_fit = SCSPILL({**base, "effect_matrix": homogeneous}).fit()
+    homogeneous_fit = SCSPILL(
+        {**base, "spillover_structure": "custom", "effect_matrix": homogeneous}
+    ).fit()
     for key, result in (("range", range_fit), ("homogeneous", homogeneous_fit)):
         assert result.kappa_test[50].statistic == pytest.approx(
             expected[key]["statistic"], abs=0.001
