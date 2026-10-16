@@ -135,6 +135,7 @@ class SCSPILL:
                 covariates=cfg.covariates if sar else None,
                 min_pre=2 if sar else 3,
                 min_controls=3 if sar else 2,
+                allow_multiple_treated=not sar,
                 require_persistent=not sar,
             )
             if sar:
@@ -144,6 +145,7 @@ class SCSPILL:
                     panel,
                     spillover_structure=cfg.spillover_structure,
                     affected_units=cfg.affected_units,
+                    unit_distances=cfg.unit_distances,
                     effect_matrix=cfg.effect_matrix,
                 )
         except (ScspillDataError, ScspillConfigError):
@@ -179,6 +181,7 @@ class SCSPILL:
                     quantile_method=cfg.quantile_method,
                     ci_method=cfg.ci_method,
                     ci=cfg.ci,
+                    weighting=cfg.weighting,
                     scm_maxiter=cfg.scm_maxiter,
                     scm_ftol=cfg.scm_ftol,
                 )

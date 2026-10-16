@@ -11,15 +11,16 @@ that the assumed exposure structure cannot explain.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Mapping
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
 
-from ....exceptions import ScspillConfigError
+from ....exceptions import ScspillConfigError, ScspillEstimationError
 from .estimation import effect_operator
-from .structures import CDTestResult
+from .setup import build_exposure_matrix, validate_effect_matrix
+from .structures import CDFit, CDTestResult, KappaSelection
 
 
 def empirical_quantile(values: np.ndarray, probability: float) -> float:
@@ -262,6 +263,90 @@ def reference_residuals(
     return placebo, kappa_pre
 
 
+#: Keys a structure specification may hold in :func:`select_structure_by_kappa`.
+_SPEC_KEYS = {"spillover_structure", "affected_units", "unit_distances", "effect_matrix"}
+
+
+def select_structure_by_kappa(
+    fit: CDFit,
+    candidates: Mapping[str, pd.DataFrame | Mapping[str, Any]],
+    *,
+    statistic: Literal["v3", "mean_norm"] = "v3",
+) -> KappaSelection:
+    """Choose the exposure structure with the smallest ``kappa_A`` statistic.
+
+    Cao & Dowd v3 Section 5.1.2 proposes ``argmin_A kappa_A`` over a set of
+    candidate structures, and Section S.1.3 extends it to several
+    post-treatment periods, where the choice becomes consistent. The SCM
+    equations of ``fit`` are reused; only ``A`` changes.
+
+    Parameters
+    ----------
+    fit : CDFit
+        A fitted ``cd`` model.
+    candidates : mapping
+        ``{name: A}`` with ``A`` a labeled exposure matrix, or ``{name:
+        spec}`` with ``spec`` a dict of ``spillover_structure`` (default
+        ``"per_unit"``), ``affected_units``, ``unit_distances`` and
+        ``effect_matrix``, as in ``SCSPILLConfig``.
+    statistic : {"v3", "mean_norm"}, default "v3"
+        ``"v3"`` is the paper's ``||sum_s (I - Gamma_A) u_s|| / sqrt(T1)``
+        (Section S.1.3); ``"mean_norm"`` averages the per-period norms, as
+        mlsynth's ``select_A_by_kappa`` does.
+
+    Returns
+    -------
+    KappaSelection
+
+    Raises
+    ------
+    ScspillConfigError
+        On an invalid or unidentified candidate.
+    """
+    if statistic not in ("v3", "mean_norm"):
+        raise ScspillConfigError(f"Unknown statistic {statistic!r}; use 'v3' or 'mean_norm'.")
+    if not candidates:
+        raise ScspillConfigError("Pass at least one candidate structure.")
+    inputs = fit.inputs
+    labels = list(inputs.unit_labels)
+    b = fit.scm_matrix.loc[labels, labels].to_numpy(dtype=float)
+    a = fit.intercepts.loc[labels].to_numpy(dtype=float)
+    eye = np.eye(len(labels))
+    post = (eye - b) @ inputs.Y_units[:, inputs.T0 :] - a[:, None]
+    stats: dict[str, float] = {}
+    matrices: dict[str, pd.DataFrame] = {}
+    for name, candidate in candidates.items():
+        if isinstance(candidate, pd.DataFrame):
+            matrix = validate_effect_matrix(candidate, labels, inputs.treated_labels)
+        elif isinstance(candidate, Mapping):
+            unknown = set(candidate) - _SPEC_KEYS
+            if unknown:
+                raise ScspillConfigError(f"Candidate {name!r} has unknown keys {sorted(unknown)}.")
+            spec = {"spillover_structure": "per_unit", **candidate}
+            try:
+                matrix = build_exposure_matrix(inputs, **spec)
+            except ScspillConfigError as exc:
+                raise ScspillConfigError(f"Candidate {name!r}: {exc}") from exc
+        else:
+            raise ScspillConfigError(
+                f"Candidate {name!r} must be a labeled DataFrame or a structure dict."
+            )
+        try:
+            op = effect_operator(b, matrix.to_numpy(dtype=float))
+        except ScspillEstimationError as exc:
+            raise ScspillConfigError(f"Candidate {name!r}: {exc}") from exc
+        unexplained = (eye - op.projector) @ post
+        if statistic == "v3":
+            stats[name] = float(np.linalg.norm(unexplained.sum(axis=1)) / np.sqrt(post.shape[1]))
+        else:
+            stats[name] = float(np.linalg.norm(unexplained, axis=0).mean())
+        matrices[name] = matrix
+    series = pd.Series(stats, name=f"kappa_A ({statistic})")
+    return KappaSelection(
+        statistics=series, best=str(series.idxmin()), statistic=statistic, matrices=matrices
+    )
+
+
 __all__ = [
     "critical_value",
     "empirical_quantile",
@@ -272,4 +357,5 @@ __all__ = [
     "pointwise_p_values",
     "quadratic_test",
     "reference_residuals",
+    "select_structure_by_kappa",
 ]

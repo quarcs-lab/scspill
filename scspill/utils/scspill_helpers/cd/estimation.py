@@ -78,3 +78,50 @@ def effect_operator(b: np.ndarray, a: np.ndarray) -> EffectOperator:
         rank=rank,
         condition_number=float((singular[0] / singular[-1]) ** 2),
     )
+
+
+#: Ridge added to the residual covariance before inverting it; keeps the
+#: efficient weight positive definite when ``T0`` does not exceed the number
+#: of units (the same value as mlsynth).
+OMEGA_RIDGE = 1e-6
+
+
+def residual_covariance(residuals: np.ndarray, *, ridge: float = OMEGA_RIDGE) -> np.ndarray:
+    """Estimate ``Omega = Cov[u_t]`` from the pre-treatment residuals.
+
+    ``Omega_hat = T0^{-1} sum_t u_t u_t' + ridge * I`` with
+    ``u_t = (I - B) Y_t - a``, shape ``(n, n)``.
+    """
+    n, t0 = residuals.shape
+    return residuals @ residuals.T / t0 + ridge * np.eye(n)
+
+
+def weighted_effect_operator(b: np.ndarray, a: np.ndarray, weight: np.ndarray) -> EffectOperator:
+    """Build the effect maps under a weighting matrix ``W`` (v3 Section S.1.1).
+
+    ``gamma_W = (A' R' W R A)^{-1} A' R' W (R Y_t - a)``: minimizing
+    ``||W^{1/2} u_t||`` instead of ``||u_t||``. With ``W`` a consistent
+    estimate of ``Omega^{-1}`` this is the lower-variance estimator of
+    Proposition S.1. ``projector`` is then the ``W``-orthogonal projection
+    onto the span of ``R A``.
+
+    Raises
+    ------
+    ScspillEstimationError
+        When ``(I - B) A`` does not have full column rank.
+    """
+    ra = (np.eye(len(b)) - b) @ a
+    rank = int(np.linalg.matrix_rank(ra))
+    if rank != a.shape[1]:
+        raise ScspillEstimationError(
+            f"Cao--Dowd effects unidentified: rank((I-B)A)={rank} < {a.shape[1]}."
+        )
+    gram = ra.T @ weight @ ra
+    gamma_map = np.linalg.solve(gram, ra.T @ weight)
+    return EffectOperator(
+        gamma_map=gamma_map,
+        unit_map=a @ gamma_map,
+        projector=ra @ gamma_map,
+        rank=rank,
+        condition_number=float(np.linalg.cond(gram)),
+    )

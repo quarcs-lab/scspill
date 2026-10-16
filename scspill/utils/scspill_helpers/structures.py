@@ -10,6 +10,7 @@ under their historical import path.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Literal
 
 import numpy as np
@@ -18,7 +19,7 @@ from pydantic import ConfigDict, Field, model_validator
 
 from ...config_models import BaseEstimatorResults
 from ...exceptions import ScspillEstimationError
-from .cd.structures import CDFit, CDInputs, CDTestResult
+from .cd.structures import CDFit, CDInputs, CDTestResult, KappaSelection
 from .containers import PanelInputs, SCSPILLEffects, _freeze_array
 from .sar.structures import (
     AlphaPosterior,
@@ -207,6 +208,22 @@ class SCSPILLResults(BaseEstimatorResults):
         """
         return self._require_cd("test_hypothesis").test_hypothesis(
             C, d=d, period=period, weight=weight, quantile_method=quantile_method
+        )
+
+    def select_structure_by_kappa(
+        self,
+        candidates: Mapping[str, pd.DataFrame | Mapping[str, Any]],
+        *,
+        statistic: Literal["v3", "mean_norm"] = "v3",
+    ) -> KappaSelection:
+        """Choose among exposure structures by ``kappa_A`` (``cd`` only).
+
+        See :func:`scspill.utils.scspill_helpers.cd.inference.select_structure_by_kappa`.
+        """
+        from .cd.inference import select_structure_by_kappa
+
+        return select_structure_by_kappa(
+            self._require_cd("select_structure_by_kappa"), candidates, statistic=statistic
         )
 
     # ------------------------------------------------------------------
