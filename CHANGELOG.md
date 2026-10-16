@@ -31,6 +31,38 @@ Contributed by Hayato Tagawa, and restructured to the package's architecture.
   `result.cd`). The shared surface — `att`, `counterfactual`, `gap`,
   `donor_weights`, `effects_detail`, `plot()` — works for both. Model-only
   accessors raise `AttributeError` on the other model.
+- **Exposure structures from the paper.** `spillover_structure` takes:
+  - `"per_unit"`: one effect per exposed control (Example 1);
+  - `"homogeneous"`: one spillover shared by the `affected_units`
+    (Example 2);
+  - `"distance_decay"`: a spillover of `b·exp(-d_i)`, with distances in
+    `unit_distances` (Example 3);
+  - `"custom"`: a labeled `effect_matrix`.
+- **Several treated units with a common start date** (v3 Section S.1.2).
+  Each gets its own direct effect. The headline surface (`att`,
+  `counterfactual`, plots) follows the first treated unit in label order;
+  `att_by_unit` and `effects_panel` cover all of them.
+- **`weighting="efficient"`** adds the lower-variance estimator of v3
+  Section S.1.1, which weights the residual equations by the inverse of their
+  estimated covariance. It is reported alongside the headline fit as
+  `result.cd.efficient`. A warning flags when there are too few
+  pre-treatment periods to estimate that covariance.
+- **Pure-donor sensitivity** (v3 Section 5.2.2). `result.cd.sensitivity`
+  holds the worst-case bias of the direct effect when `p` assumed-clean
+  controls in fact receive spillovers, for the spillover-aware estimator and
+  for the pure-donor synthetic control. The new `sensitivity` plot kind draws
+  it, and the `weights` plot compares against the pure-donor weights.
+- **Structure selection by `κ_A`** (v3 Sections 5.1.2 and S.1.3).
+  `result.select_structure_by_kappa(candidates)` compares candidate
+  structures on the same SCM fit. The default statistic is the paper's
+  multi-period `κ_A`, the norm of the summed residual vectors over `√T1`.
+  `statistic="mean_norm"` uses mlsynth's mean of the per-period norms
+  instead.
+- **Cross-checked against mlsynth.** `scspill/tests/test_cd_mlsynth_parity.py`
+  compares every feature with mlsynth's `SPILLSYNTH(method="cd")` on frozen
+  fixtures (`benchmarks/reference/mlsynth_cd/`, written by
+  `tools/freeze_mlsynth_cd_reference.py`). SCM weights agree to the
+  difference between the two solvers, and P values agree exactly.
 - **Each treated unit's row of a custom `effect_matrix` must be its own
   direct-effect indicator**, so a spillover column cannot leak into the
   headline effect. `affected_units` may not list the treated unit.

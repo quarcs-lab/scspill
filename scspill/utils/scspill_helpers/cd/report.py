@@ -123,6 +123,7 @@ def build_cd_report(cfg: SCSPILLConfig, fit: CDFit) -> dict[str, Any]:
             parameters_used={
                 "method": "cd",
                 "spillover_structure": cfg.spillover_structure,
+                "weighting": cfg.weighting,
                 "reference_mode": cfg.reference_mode,
                 "quantile_method": cfg.quantile_method,
                 "ci_method": cfg.ci_method,

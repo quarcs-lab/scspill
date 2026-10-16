@@ -13,6 +13,7 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
+from ....exceptions import ScspillConfigError
 from ..containers import PanelInputs, _freeze_array
 
 
@@ -88,6 +89,122 @@ class CDTestResult:
         _freeze_array(self.reference_statistics)
 
 
+@dataclass(frozen=True)
+class PureDonorSensitivity:
+    """Misspecification-bias weights of the two estimators of the direct effect.
+
+    Attributes
+    ----------
+    treated_label : Any
+        The treated unit whose direct effect is assessed (the headline).
+    clean_labels : tuple
+        Controls assumed unexposed: the pure donors.
+    w_sp : pd.Series
+        Bias weights of the spillover-aware estimator on each clean control.
+    w_pd : pd.Series
+        Donor weights of the pure-donor synthetic control on each clean
+        control.
+    a_pd : float
+        Intercept of the pure-donor synthetic control.
+    """
+
+    treated_label: Any
+    clean_labels: tuple[Any, ...]
+    w_sp: pd.Series
+    w_pd: pd.Series
+    a_pd: float
+
+    @property
+    def n_clean(self) -> int:
+        """Number of clean controls."""
+        return len(self.clean_labels)
+
+    def coefficients(self, p: int) -> tuple[float, float]:
+        """Worst-case bias coefficients ``(c_p^SP, c_p^PD)`` for ``p`` missed units.
+
+        Each is the sum of the ``p`` largest absolute weights.
+        """
+        if not 1 <= p <= self.n_clean:
+            raise ScspillConfigError(f"p must be between 1 and {self.n_clean}; got {p}.")
+        c_sp = float(np.sort(np.abs(self.w_sp.to_numpy()))[::-1][:p].sum())
+        c_pd = float(np.sort(np.abs(self.w_pd.to_numpy()))[::-1][:p].sum())
+        return c_sp, c_pd
+
+    def bias_bounds(self, p: int, alpha_bar: np.ndarray) -> pd.DataFrame:
+        """Half-widths of the bias sets over a grid of ``alpha_bar``.
+
+        Returns
+        -------
+        pd.DataFrame
+            Indexed by ``alpha_bar`` with columns ``"spillover_aware"`` and
+            ``"pure_donor"``; the bias set is ``[-value, +value]``.
+        """
+        c_sp, c_pd = self.coefficients(p)
+        grid = np.asarray(alpha_bar, dtype=float).reshape(-1)
+        return pd.DataFrame(
+            {"spillover_aware": c_sp * grid, "pure_donor": c_pd * grid},
+            index=pd.Index(grid, name="alpha_bar"),
+        )
+
+
+@dataclass(frozen=True, kw_only=True)
+class CDEfficientFit:
+    """The lower-variance (efficient) estimator of Cao & Dowd v3 Section S.1.1.
+
+    Point estimates only, reported alongside the identity-weighted fit.
+
+    Attributes
+    ----------
+    omega_hat : pd.DataFrame
+        Estimated covariance of the residuals, ``T0^{-1} sum u_t u_t'`` plus a
+        ridge of ``ridge`` on the diagonal.
+    weight_matrix : pd.DataFrame
+        ``W = Omega_hat^{-1}``.
+    ridge : float
+        Ridge added to ``Omega_hat``.
+    gamma : pd.DataFrame
+        Effect parameters, post periods by columns of ``A``.
+    effects_panel : pd.DataFrame
+        Effect on every unit, post periods by unit labels.
+    condition_number : float
+        Condition number of ``A' R' W R A``.
+    att_by_unit : dict
+        Average post-treatment direct effect of every treated unit.
+    """
+
+    omega_hat: pd.DataFrame
+    weight_matrix: pd.DataFrame
+    ridge: float
+    gamma: pd.DataFrame
+    effects_panel: pd.DataFrame
+    condition_number: float
+    att_by_unit: dict[Any, float]
+
+
+@dataclass(frozen=True)
+class KappaSelection:
+    """Choice among candidate exposure structures by the ``kappa_A`` statistic.
+
+    Attributes
+    ----------
+    statistics : pd.Series
+        The multi-period ``kappa_A`` statistic of every candidate, by name.
+    best : str
+        The candidate with the smallest statistic.
+    statistic : str
+        ``"v3"``: ``||sum_s (I - Gamma_A) u_s|| / sqrt(T1)`` (v3 Section
+        S.1.3); ``"mean_norm"``: the mean over post periods of the
+        per-period statistic (mlsynth's ``select_A_by_kappa``).
+    matrices : dict
+        The exposure matrix ``A`` of every candidate.
+    """
+
+    statistics: pd.Series
+    best: str
+    statistic: str
+    matrices: dict[str, pd.DataFrame]
+
+
 @dataclass(frozen=True, kw_only=True)
 class CDFit:
     """Everything the ``cd`` pipeline produced.
@@ -131,6 +248,12 @@ class CDFit:
         The inference settings.
     ci_level : float
         Level of every interval and test.
+    weighting : str
+        ``"identity"``, or ``"efficient"`` when :attr:`efficient` is set.
+    efficient : CDEfficientFit or None
+        The efficient estimator (``weighting="efficient"``).
+    sensitivity : PureDonorSensitivity or None
+        Bias weights under missed spillovers; ``None`` without clean controls.
     """
 
     inputs: CDInputs
@@ -153,6 +276,9 @@ class CDFit:
     quantile_method: Literal["empirical", "linear"]
     ci_method: Literal["inversion", "published"]
     ci_level: float
+    weighting: Literal["identity", "efficient"] = "identity"
+    efficient: CDEfficientFit | None = None
+    sensitivity: PureDonorSensitivity | None = None
 
     @property
     def effect_ci(self) -> dict[Any, pd.DataFrame]:
@@ -192,7 +318,6 @@ class CDFit:
         -------
         CDTestResult
         """
-        from ....exceptions import ScspillConfigError
         from .inference import parse_contrast, quadratic_test
 
         if period is None:

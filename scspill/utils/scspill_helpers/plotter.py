@@ -18,7 +18,10 @@ package's ``plot.scspill`` types:
 * ``"spillover"`` (``cd``) -- small multiples of the direct effect and every
   exposed control's spillover, with their pointwise intervals;
 * ``"kappa"`` (``cd``) -- the ``kappa_A`` structure statistic by period
-  against its critical value.
+  against its critical value;
+* ``"sensitivity"`` (``cd``) -- worst-case bias of the direct effect under
+  missed spillovers, spillover-aware vs. pure-donor SCM (the paper's
+  Figure 3).
 
 The kinds drawn from the shared effect contract (``full``, ``effect``,
 ``spill_top``, ``panel``, ``weights``) work for every model; the others are
@@ -40,7 +43,7 @@ if TYPE_CHECKING:  # pragma: no cover
 #: The plot kinds each model supports.
 KINDS: dict[str, tuple[str, ...]] = {
     "sar": ("panel", "full", "effect", "spill_top", "weights", "rho", "trace"),
-    "cd": ("panel", "full", "effect", "spill_top", "weights", "spillover", "kappa"),
+    "cd": ("panel", "full", "effect", "spill_top", "weights", "spillover", "kappa", "sensitivity"),
 }
 
 
@@ -133,6 +136,8 @@ def plot_scspill(
                     _draw_trace(results, ax)
                 elif kind == "kappa":
                     _draw_kappa(results, ax)
+                elif kind == "sensitivity":
+                    _draw_sensitivity(results, ax)
                 out = ax
 
             if save:
@@ -247,7 +252,10 @@ def _comparator_weights(results: SCSPILLResults) -> dict[str, float] | None:
     """Return the comparator weights drawn as markers (a no-spillover SCM)."""
     if results.method == "sar":
         return results.scm_weights or None
-    return None
+    sensitivity = results.cd.sensitivity if results.cd is not None else None
+    if sensitivity is None:
+        return None
+    return {str(k): float(v) for k, v in sensitivity.w_pd.items()}
 
 
 def _draw_weights(results: SCSPILLResults, ax, top_n: int = 15) -> None:
@@ -367,4 +375,33 @@ def _draw_kappa(results: SCSPILLResults, ax) -> None:
     ax.set_xlabel("Time")
     ax.set_ylabel(r"$\kappa_A$ statistic")
     ax.set_title("Specification test of the exposure structure")
+    ax.legend(fontsize=8)
+
+
+def _draw_sensitivity(results: SCSPILLResults, ax, max_missed: int = 2) -> None:
+    """Draw the worst-case bias bounds under missed spillovers (``cd``)."""
+    sensitivity = results.cd.sensitivity if results.cd is not None else None
+    if sensitivity is None:
+        raise ScspillPlottingError(
+            "The sensitivity plot needs clean controls (units outside the exposure structure)."
+        )
+    effect = results.effects_panel[sensitivity.treated_label]
+    grid = np.linspace(0.0, float(np.abs(effect).max()), 50)
+    styles = ("-", "--", ":", "-.")
+    for p in range(1, min(max_missed, sensitivity.n_clean) + 1):
+        bounds = sensitivity.bias_bounds(p, grid)
+        style = styles[(p - 1) % len(styles)]
+        ax.plot(
+            grid,
+            bounds["spillover_aware"],
+            style,
+            color="#1f77b4",
+            label=f"Spillover-aware, {p} missed",
+        )
+        ax.plot(
+            grid, bounds["pure_donor"], style, color="crimson", label=f"Pure-donor SCM, {p} missed"
+        )
+    ax.set_xlabel(r"Largest missed spillover $\bar\alpha$")
+    ax.set_ylabel("Worst-case |bias| of the direct effect")
+    ax.set_title(f"Sensitivity to missed spillovers ({sensitivity.treated_label})")
     ax.legend(fontsize=8)

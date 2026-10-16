@@ -115,7 +115,8 @@ quartodoc:
       desc: >-
         The frozen dataclasses behind a result — the model-agnostic prepared
         panel and effect contract, the `sar` model's inputs and posterior
-        blocks, and the `cd` model's inputs, fit and P tests.
+        blocks, and the `cd` model's inputs, fit, P tests, efficient
+        estimator, sensitivity weights and structure selection.
       package: scspill.utils.scspill_helpers
       contents:
         - containers.PanelInputs
@@ -126,6 +127,9 @@ quartodoc:
         - cd.structures.CDInputs
         - cd.structures.CDFit
         - cd.structures.CDTestResult
+        - cd.structures.CDEfficientFit
+        - cd.structures.PureDonorSensitivity
+        - cd.structures.KappaSelection
     - title: Validation & prior checks
       desc: >-
         The `sar` article's appendix machinery as user-facing functions — the

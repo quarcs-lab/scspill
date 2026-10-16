@@ -25,26 +25,55 @@ Module layout:
 * :mod:`.setup` -- the exposure matrix ``A`` and :func:`prepare_cd_inputs`.
 * :mod:`.scm_core` -- the intercept-adjusted simplex SCM equations.
 * :mod:`.estimation` -- the effect maps from the residual equations.
-* :mod:`.inference` -- P tests, intervals, and the ``kappa_A`` test.
+* :mod:`.inference` -- P tests, intervals, the ``kappa_A`` test, and
+  structure selection by ``kappa_A``.
+* :mod:`.sensitivity` -- bias bounds under missed spillovers.
 * :mod:`.pipeline` -- :func:`run_cd`, the driver.
 * :mod:`.report` -- the fit mapped onto the standardized result.
 * :mod:`.structures` -- :class:`CDInputs`, :class:`CDTestResult`,
-  :class:`CDFit`.
+  :class:`CDFit`, :class:`CDEfficientFit`, :class:`PureDonorSensitivity`,
+  :class:`KappaSelection`.
 """
 
+from .inference import select_structure_by_kappa
 from .pipeline import run_cd
 from .report import build_cd_report, cd_effects
-from .setup import build_A_per_unit, prepare_cd_inputs, validate_effect_matrix
-from .structures import CDFit, CDInputs, CDTestResult
+from .sensitivity import pure_donor_sensitivity
+from .setup import (
+    build_A_distance_decay,
+    build_A_homogeneous,
+    build_A_per_unit,
+    build_exposure_matrix,
+    decay_weights,
+    prepare_cd_inputs,
+    validate_effect_matrix,
+)
+from .structures import (
+    CDEfficientFit,
+    CDFit,
+    CDInputs,
+    CDTestResult,
+    KappaSelection,
+    PureDonorSensitivity,
+)
 
 __all__ = [
+    "CDEfficientFit",
     "CDFit",
     "CDInputs",
     "CDTestResult",
+    "KappaSelection",
+    "PureDonorSensitivity",
+    "build_A_distance_decay",
+    "build_A_homogeneous",
     "build_A_per_unit",
     "build_cd_report",
+    "build_exposure_matrix",
     "cd_effects",
+    "decay_weights",
     "prepare_cd_inputs",
+    "pure_donor_sensitivity",
     "run_cd",
+    "select_structure_by_kappa",
     "validate_effect_matrix",
 ]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+import numpy as np
 import pandas as pd
 from pydantic import Field, model_validator
 
@@ -35,6 +36,8 @@ CD_FIELDS = (
     "affected_units",
     "spillover_structure",
     "effect_matrix",
+    "unit_distances",
+    "weighting",
     "reference_mode",
     "quantile_method",
     "ci_method",
@@ -238,17 +241,38 @@ class SCSPILLConfig(BaseEstimatorConfig):
         default=None,
         description=(
             "(method='cd') Labels of the control units that may receive a "
-            "spillover. Each gets its own effect under "
-            "spillover_structure='per_unit'. The treated unit must not appear "
-            "here; omitting the field means no unit is exposed."
+            "spillover: each gets its own effect under spillover_structure="
+            "'per_unit', and they share one effect under 'homogeneous'. A "
+            "treated unit must not appear here; omitting the field means no "
+            "control is exposed."
         ),
     )
-    spillover_structure: Literal["per_unit", "custom"] = Field(
+    spillover_structure: Literal["per_unit", "homogeneous", "distance_decay", "custom"] = Field(
         default="per_unit",
         description=(
-            "(method='cd') How the exposure matrix A is built: 'per_unit' gives "
-            "the treated unit and every affected unit its own effect; 'custom' "
-            "takes A from effect_matrix."
+            "(method='cd') How the exposure matrix A is built (Cao & Dowd v3): "
+            "'per_unit' (Example 1) gives every treated unit and every affected "
+            "unit its own effect; 'homogeneous' (Example 2) gives the affected "
+            "units one shared spillover; 'distance_decay' (Example 3) makes the "
+            "spillover on control i equal b * exp(-d_i), with d_i from "
+            "unit_distances; 'custom' takes A from effect_matrix."
+        ),
+    )
+    unit_distances: dict[Any, float] | None = Field(
+        default=None,
+        description=(
+            "(method='cd', required for spillover_structure='distance_decay') "
+            "Distance d_i >= 0 of each exposed control from the treated unit. "
+            "Controls left out are treated as infinitely far: no spillover."
+        ),
+    )
+    weighting: Literal["identity", "efficient"] = Field(
+        default="identity",
+        description=(
+            "(method='cd') 'efficient' additionally fits the lower-variance "
+            "estimator of Cao & Dowd v3 Section S.1.1, weighting the residual "
+            "equations by the inverse of their estimated covariance; it is "
+            "reported alongside the headline (identity-weighted) fit."
         ),
     )
     effect_matrix: pd.DataFrame | None = Field(
@@ -349,12 +373,41 @@ class SCSPILLConfig(BaseEstimatorConfig):
             )
         units = set(self.df[self.unitid].unique())
         treated = set(self.df.loc[self.df[self.treat] == 1, self.unitid].unique())
-        if self.effect_matrix is not None:
-            if self.affected_units is not None:
+        structure = self.spillover_structure
+        if self.unit_distances is not None and structure != "distance_decay":
+            raise ScspillConfigError(
+                "unit_distances is used only with spillover_structure='distance_decay'."
+            )
+        if structure in ("custom", "distance_decay") and self.affected_units is not None:
+            raise ScspillConfigError(
+                f"affected_units is not used with spillover_structure={structure!r}; the "
+                + ("effect_matrix" if custom else "unit_distances")
+                + " defines the exposure."
+            )
+        if structure == "homogeneous" and not self.affected_units:
+            raise ScspillConfigError(
+                "spillover_structure='homogeneous' needs at least one affected unit."
+            )
+        if structure == "distance_decay":
+            distances = self.unit_distances or {}
+            if not distances:
                 raise ScspillConfigError(
-                    "affected_units is not used with spillover_structure='custom'; "
-                    "the exposure is the effect_matrix."
+                    "spillover_structure='distance_decay' requires unit_distances."
                 )
+            unknown = [u for u in distances if u not in units]
+            if unknown:
+                raise ScspillConfigError(f"unit_distances labels not found in df: {unknown}.")
+            if treated & set(distances):
+                raise ScspillConfigError(
+                    f"unit_distances must not include a treated unit: "
+                    f"{sorted(treated & set(distances))}."
+                )
+            bad = [u for u, d in distances.items() if not np.isfinite(d) or d < 0]
+            if bad:
+                raise ScspillConfigError(
+                    f"unit_distances must be finite and non-negative; check {bad}."
+                )
+        if self.effect_matrix is not None:
             validate_effect_matrix(self.effect_matrix, sorted(units), sorted(treated))
         elif self.affected_units is not None:
             labels = list(self.affected_units)
