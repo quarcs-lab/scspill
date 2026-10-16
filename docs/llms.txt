@@ -10,7 +10,7 @@ JIT-compiled samplers).
 
 Models: TWO are implemented -- `method="sar"` (Sakaguchi & Tagawa,
 The Econometrics Journal 2026), the default, and `method="cd"` (Cao & Dowd,
-arXiv:1902.07343v4). `sar` routes
+arXiv:1902.07343v3). `sar` routes
 spillovers through user-supplied spatial weights scaled by one estimated
 intensity rho, via two-step MCMC (horseshoe synthetic weights, then a SAR
 spillover block). `cd` fits intercept-adjusted all-unit SCM with a fixed
@@ -26,9 +26,10 @@ treated unit and date are inferred from the 0/1 `treat` column; spatial
 weights align by donor label.
 
 Minimal contract (model `cd`): SCSPILL({method: "cd", df, outcome, treat,
-unitid, time, affected_units? or effect_matrix?, reference_mode?,
-quantile_method?, ci_method?}).fit() -> SCSPILLResults with .effects_panel,
-.effect_ci (= .published_ci by default, or .pointwise_ci),
+unitid, time, affected_units? | (spillover_structure='custom',
+effect_matrix), reference_mode?, quantile_method?, ci_method?}).fit() ->
+SCSPILLResults (method='cd') with .att, .counterfactual, .effects_panel,
+.effect_ci (= .pointwise_ci by test inversion by default, or .published_ci),
 .pointwise_p_values, .kappa_test, and .test_hypothesis(C). The 51-unit
 1989-onward replication panel is load_california_cd(51).
 

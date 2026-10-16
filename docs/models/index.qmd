@@ -33,7 +33,7 @@ specified spillover structure and pre-treatment P-test reference distribution.
 | Model | `method` | Reference | Class | Page |
 |---|---|---|---|---|
 | Bayesian spatial-autoregressive spillover SCM | `"sar"` | Sakaguchi & Tagawa (2026), *The Econometrics Journal*, [doi:10.1093/ectj/utag006](https://doi.org/10.1093/ectj/utag006) | `SCSPILL` | [`sar` →](sar.qmd) |
-| SCM with spillover effects | `"cd"` | Cao & Dowd, [arXiv:1902.07343v4](https://arxiv.org/html/1902.07343v4) | `SCSPILL` | [`cd` →](cd.qmd) |
+| SCM with spillover effects | `"cd"` | Cao & Dowd, [arXiv:1902.07343v3](https://arxiv.org/abs/1902.07343v3) | `SCSPILL` | [`cd` →](cd.qmd) |
 
 ### `sar` — spillovers as a spatial process
 
