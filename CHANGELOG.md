@@ -76,6 +76,17 @@ Contributed by Hayato Tagawa, and restructured to the package's architecture.
   (`jcao0/synthetic-control-spillover`, commit `86004020`), and their
   simulation code's statistics, stored in `benchmarks/reference/cao_dowd/`.
 
+### Documentation
+
+- **New article, "The `cd` model in practice"** (`docs/articles/cd-results.qmd`).
+  It covers usage, the Proposition 99 results, and four disagreements:
+  `cd` vs `sar`, the paper vs the authors' code, the structure test rejecting
+  the paper's exposure set, and the structure-selection statistic vs
+  mlsynth's. To separate model from sample, it fits both models on all three
+  samples, using rook-contiguity weights for the 51-unit panel built from
+  the same Census source as the bundled ones
+  (`docs/articles/data/cd_rook_W.csv`, `tools/build_cd_contiguity.py`).
+
 ### Changed
 
 - **Panel preparation is shared by every model**

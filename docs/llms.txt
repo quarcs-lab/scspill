@@ -49,6 +49,7 @@ Several treated units are allowed with a common start. The 51-unit
 - [Proposition 99 with a known spillover structure (cd vs sar)](https://quarcs-lab.github.io/scspill/prop99-spillovers.html)
 - [Validating the sampler](https://quarcs-lab.github.io/scspill/articles/validation.html)
 - [The Monte Carlo simulation study](https://quarcs-lab.github.io/scspill/articles/simulation-study.html)
+- [The cd model in practice: usage, results, and disagreements](https://quarcs-lab.github.io/scspill/articles/cd-results.html)
 - [Replicating Cao & Dowd (cd)](https://quarcs-lab.github.io/scspill/articles/cd-replication.html)
 - [The bundled datasets](https://quarcs-lab.github.io/scspill/articles/datasets.html)
 - [For AI / LLMs](https://quarcs-lab.github.io/scspill/use-with-llms.html)

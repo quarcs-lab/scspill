@@ -41,6 +41,8 @@ website:
             file: articles/validation.qmd
           - text: "The Monte Carlo simulation study"
             file: articles/simulation-study.qmd
+          - text: "The cd model in practice: results and disagreements"
+            file: articles/cd-results.qmd
           - text: "Replicating Cao & Dowd (cd)"
             file: articles/cd-replication.qmd
           - text: "The bundled datasets"

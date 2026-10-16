@@ -273,3 +273,6 @@ both shows how much the conclusion depends on the spillover assumption.
   references (`reference_mode="leave_one_period_out"`) noticeably wider.
 - The [replication article](articles/cd-replication.qmd) shows the authors'
   published numbers reproduced, with the settings of their application code.
+- [The `cd` model in practice](articles/cd-results.qmd) takes the
+  disagreements further. It fits both models on all three samples to separate
+  model from sample, and it diagnoses the structure test's rejection.
