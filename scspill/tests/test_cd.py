@@ -1,4 +1,13 @@
-"""Cao--Dowd estimator, inference, and Proposition 99 replication checks."""
+"""Cao--Dowd estimator, inference, and Proposition 99 replication checks.
+
+The numbers checked here come from the authors' repository,
+jcao0/synthetic-control-spillover at commit 86004020: the frozen output of
+their Proposition 99 application code, and draws and statistics generated
+with their simulation code. Their application code uses the interpolated
+quantile and the signed-quantile interval, so those checks pass
+``APPLICATION_CODE`` explicitly; the package defaults are the paper's (v3)
+Section 4 definitions.
+"""
 
 import json
 from pathlib import Path
@@ -18,6 +27,8 @@ from scspill.data import load_california_cd
 from scspill.utils.scspill_helpers.cd import _scm_all
 
 REFERENCE = Path(__file__).resolve().parents[2] / "benchmarks/reference/cao_dowd"
+#: The settings of the authors' Proposition 99 application code.
+APPLICATION_CODE = {"quantile_method": "linear", "ci_method": "published"}
 
 
 def test_scm_is_optimal_with_tiny_maxiter_and_falls_back_to_fista(monkeypatch):
@@ -47,7 +58,7 @@ def test_scm_is_optimal_with_tiny_maxiter_and_falls_back_to_fista(monkeypatch):
 def test_application_against_authors_frozen_output(spec):
     panel = load_california_cd(spec)
     expected = json.loads((REFERENCE / f"results_{spec}.json").read_text())
-    result = SCSPILL({**panel.config_kwargs(), "display_graphs": False}).fit()
+    result = SCSPILL({**panel.config_kwargs(), **APPLICATION_CODE, "display_graphs": False}).fit()
     assert isinstance(result, CDResults)
     assert len(result.unit_labels) == spec
     assert result.t_pre == 19
@@ -71,11 +82,32 @@ def test_application_against_authors_frozen_output(spec):
         np.testing.assert_allclose(result.pointwise_p_values[state], expected["p" + state])
 
 
-def test_defaults_follow_the_authors_application_code():
-    """Default critical values and intervals reproduce Figure 4 and Table S.6."""
+def test_defaults_are_v3_section4():
+    """Defaults: left-inverse critical values and test-inversion intervals."""
     panel = load_california_cd(51)
     result = SCSPILL({**panel.config_kwargs(), "display_graphs": False}).fit()
-    assert (result.quantile_method, result.ci_method) == ("linear", "published")
+    assert (result.quantile_method, result.ci_method) == ("empirical", "inversion")
+    assert result.reference_mode == "full"
+    assert result.effect_ci is result.pointwise_ci
+    width = result.pointwise_ci["CA"].eval("upper - lower")
+    assert np.allclose(width, width.iloc[0])  # symmetric, constant half-width
+    # Left inverse: with 19 reference periods the 95% critical value is the 19th
+    # order statistic, the largest one.
+    spill = np.eye(len(result.unit_labels))[1:]
+    test = result.test_hypothesis(spill, period=1990)
+    assert test.critical_value == pytest.approx(test.reference_statistics.max())
+    # Prediction band is the selected interval mapped to the counterfactual scale.
+    band = result.time_series.counterfactual_lower
+    observed = result.time_series.observed_outcome
+    np.testing.assert_allclose(
+        band[19:], observed[19:] - result.effect_ci["CA"]["upper"].to_numpy()
+    )
+
+
+def test_application_code_switches_reproduce_the_published_rejections():
+    """The authors' code settings reproduce the published joint spillover test."""
+    panel = load_california_cd(51)
+    result = SCSPILL({**panel.config_kwargs(), **APPLICATION_CODE, "display_graphs": False}).fit()
     assert result.effect_ci is result.published_ci
     spill = np.eye(len(result.unit_labels))[1:]
     years = result.effects_panel.index
@@ -87,18 +119,10 @@ def test_defaults_follow_the_authors_application_code():
     ]
     assert linear == [1990, 1991, 1992, *range(1994, 2001)]
     assert 1994 not in paper and 1995 not in paper
-    # Prediction band is the published CI mapped to the counterfactual scale.
     band = result.time_series.counterfactual_lower
     observed = result.time_series.observed_outcome
     ci = result.published_ci["CA"]
     np.testing.assert_allclose(band[19:], observed[19:] - ci["upper"].to_numpy())
-
-    inverted = SCSPILL(
-        {**panel.config_kwargs(), "ci_method": "inversion", "display_graphs": False}
-    ).fit()
-    assert inverted.effect_ci is inverted.pointwise_ci
-    width = inverted.pointwise_ci["CA"].eval("upper - lower")
-    assert np.allclose(width, width.iloc[0])  # symmetric, constant half-width
 
 
 def test_general_hypothesis_and_distinct_intervals():
@@ -181,7 +205,7 @@ def test_leave_one_period_out_and_input_validation():
 
 
 def test_monte_carlo_first_replication_against_published_estimates():
-    """Check all six Section S.3.2 settings against author DGP draws and estimates."""
+    """Check six simulation settings against draws and estimates from the authors' code."""
     with np.load(REFERENCE / "inference_replication_1.npz") as fixture:
         panels = fixture["panels"]
         expected = fixture["sp_estimates"]
@@ -206,7 +230,7 @@ def test_monte_carlo_first_replication_against_published_estimates():
 
 
 def test_kappa_against_author_reference():
-    """Compare range and homogeneous structure statistics with author code."""
+    """Compare per-unit and homogeneous kappa_A statistics with the authors' code."""
     with np.load(REFERENCE / "inference_replication_1.npz") as fixture:
         panel = fixture["panels"][1]
     expected = json.loads((REFERENCE / "kappa_rep1.json").read_text())
@@ -267,7 +291,7 @@ def test_inference_leave_one_out_against_author_reference():
     ).fit()
     observed = result.placebo_effects["U00"].to_numpy() ** 2
     np.testing.assert_allclose(observed, author, atol=0.001, rtol=0)
-    # The authors' Monte Carlo code uses the paper's left-inverse critical value.
+    # The authors' simulation code uses the paper's left-inverse critical value.
     test = result.test_hypothesis(np.eye(51)[0], period=50, quantile_method="empirical")
     assert test.critical_value == pytest.approx(np.sort(author)[47], abs=0.001)
     assert test.p_value == float(np.mean(author >= test.statistic))

@@ -1,16 +1,21 @@
 """Cao--Dowd synthetic control with spillovers and end-of-sample inference.
 
-The defaults follow the authors' Proposition 99 replication code at commit
-86004020 (Cao and Dowd, arXiv:1902.07343v4, Section 6), which is what the
-paper's empirical tables report:
+Implements Cao and Dowd, "Estimation and Inference for Synthetic Control
+Methods with Spillover Effects" (arXiv:1902.07343v3). The defaults are the
+paper's Section 4 definitions:
 
-* critical values use the linearly interpolated sample quantile
-  (``quantile_method="linear"``), where the paper's Section 4 defines the
-  left inverse of the empirical CDF (``"empirical"``);
-* pointwise intervals add the signed pre-treatment projected-error quantiles
-  to the estimate (``ci_method="published"``), where inverting the squared
-  P test gives a symmetric interval (``"inversion"``).
+* critical values are the left inverse of the empirical CDF of the
+  pre-treatment reference statistics (``quantile_method="empirical"``);
+* pointwise intervals invert the squared P test, so they are symmetric
+  about the estimate (``ci_method="inversion"``);
+* reference statistics come from the full-sample SCM fit
+  (``reference_mode="full"``).
 
+The authors' Proposition 99 application code (jcao0/synthetic-control-
+spillover at commit 86004020) differs in two places, kept as switches so
+its published numbers can be reproduced: the linearly interpolated sample
+quantile (``quantile_method="linear"``) and intervals that add the signed
+pre-treatment error quantiles to the estimate (``ci_method="published"``).
 Both intervals are always stored; ``effect_ci`` is the one selected.
 """
 
@@ -80,7 +85,7 @@ def validate_effect_matrix(
 
 
 def _empirical_quantile(values: np.ndarray, probability: float) -> float:
-    """Left inverse of the empirical CDF, as defined in v4 Section 4."""
+    """Left inverse of the empirical CDF, as defined in v3 Section 4."""
     x = np.sort(np.asarray(values, dtype=float).reshape(-1))
     return float(x[max(0, int(np.ceil(probability * len(x))) - 1)])
 

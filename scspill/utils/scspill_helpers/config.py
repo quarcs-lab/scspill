@@ -269,8 +269,8 @@ class SCSPILLConfig(BaseEstimatorConfig):
             "pre-treatment period in turn."
         ),
     )
-    quantile_method: Literal["linear", "empirical"] = Field(
-        default="linear",
+    quantile_method: Literal["empirical", "linear"] = Field(
+        default="empirical",
         description=(
             "(method='cd') Critical-value rule of every P and kappa_A test: "
             "'empirical' is the left inverse of the empirical CDF (Cao & Dowd "
@@ -278,8 +278,8 @@ class SCSPILLConfig(BaseEstimatorConfig):
             "quantile of the authors' application code."
         ),
     )
-    ci_method: Literal["published", "inversion"] = Field(
-        default="published",
+    ci_method: Literal["inversion", "published"] = Field(
+        default="inversion",
         description=(
             "(method='cd') Pointwise interval reported as effect_ci: "
             "'inversion' inverts the squared P test, giving an interval "

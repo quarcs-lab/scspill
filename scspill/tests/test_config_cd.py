@@ -110,7 +110,7 @@ def test_empty_covariates_count_as_unset(panel):
     [
         ("affected_units", ["u01"]),
         ("reference_mode", "leave_one_period_out"),
-        ("ci_method", "inversion"),
+        ("ci_method", "published"),
         ("scm_maxiter", 10),
     ],
 )
