@@ -189,4 +189,3 @@ quartodoc:
         - load_sudan
         - SpillPanel
         - load_california_cd
-        - CDPanel
